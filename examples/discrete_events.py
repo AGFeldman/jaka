@@ -70,7 +70,7 @@ class EventManager(object):
         return self.time
 
     def add(self, time_until_action, action,):
-        assert isinstance(time_until_action, numbers.Number)
+        assert(time_until_action >= 0)
         self.queue.append((self.get_time() + time_until_action, action))
         self.queue.sort()
 
@@ -297,32 +297,33 @@ class Host(Device):
         self.ports[port].receive_from_device(packet)
         if not packet.ack:
             self.packets_waiting_for_acks[packet.id] = packet
-            def closure():
+            def ack_is_due():
                 if packet.id in self.packets_waiting_for_acks:
                     event_manager.log('{} is due to receive an ack for {}, has not received it'.format(self.id, packet.id))
                     self.packets_to_send.insert(0, packet)
                 else:
                     event_manager.log('{} is due to receive an ack for {}, has already received it'.format(self.id, packet.id))
             description = '{} is due to receive an ack for {}'.format(self.id, packet.id)
-            event_manager.add(TIME_TO_WAIT_UNTIL_ACK, closure)
+            event_manager.add(TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
 
     def act(self):
         if not self.in_sending_chain and self.packets_to_send:
             self.in_sending_chain = True
-            def closure():
+            def send_packet_and_schedule_next_send():
                 if not self.packets_to_send:
                     self.in_sending_chain = False
                     return
                 packet = self.packets_to_send.pop(0)
                 self.send_packet(packet, PORT)
                 event_manager.log('{} sent packet {} on port {}'.format(self.id, packet, PORT))
-                event_manager.add(TIME_BETWEEN_SENDS, closure)
-            event_manager.add(0, closure)
+                event_manager.add(TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
+            event_manager.add(0, send_packet_and_schedule_next_send)
             return True
         return False
 
 
-if __name__ == '__main__':
+def simulate():
+    random.seed(0)
     host1 = Host(id='H1')
     host2 = Host(id='H2')
     link1 = Link(id='L1', device1=host1, device2=host2, rate=10**7, delay=0.010, buffer_size=64000)
@@ -334,3 +335,7 @@ if __name__ == '__main__':
     event_manager.add(0.5, action)
 
     event_manager.run()
+
+
+if __name__ == '__main__':
+    simulate()
