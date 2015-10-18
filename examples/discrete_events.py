@@ -22,11 +22,14 @@
 # Packet ids are integers
 #
 # TODO(agf): Should seed the randomness so it is reproducible
+#
+# Example usage of this example code:
+# time python -m cProfile -s time discrete_events.py < /dev/null > out
 
 
 from __future__ import division
 import random
-import numbers
+import sys
 
 
 ACK_SIZE = 15  # or something
@@ -60,6 +63,15 @@ class EventManager(object):
         self.queue = []
         self.time = 0
 
+        # Start by scheduling a no-op. This triggers a cascade of act() calls
+        # on network equipment objects, as always happens when an event is
+        # processed. This initial cascade can be used to schedule the setup for
+        # any stuff like routing tables.
+        # This is just an idea. It isn't used for anything in this example code.
+        def no_op():
+            pass
+        self.add(0, no_op)
+
     def log(self, msg):
         print 'Time', self.get_time(), ':', msg
 
@@ -89,9 +101,6 @@ class EventManager(object):
                 for actor in self.actors:
                     if actor.act():
                         keep_acting = True
-
-
-event_manager = EventManager()
 
 
 class Packet(object):
@@ -322,20 +331,59 @@ class Host(Device):
         return False
 
 
-def simulate():
-    random.seed(0)
+def get_actors_flows(description):
+    '''
+    Takes a string |description| of the network topology and flows.
+    Parses |description| and returns (actors, flows).
+    |actors| is a list of objects associated with all the pieces of equipment
+    in the network. These objects should be initialized.
+    |flows| is a list of elements of the form (time, setup_function).
+    |time| is the time, in seconds, at which the flow starts.
+
+    In this example code, |description| is printed and then ignored, and
+    hard-coded network topology and flow are used.
+    '''
+    print 'Description:'
+    print description
+
     host1 = Host(id='H1')
     host2 = Host(id='H2')
     link1 = Link(id='L1', device1=host1, device2=host2, rate=10**7, delay=0.010, buffer_size=64000)
-    event_manager.set_actors([host1, host2, link1])
+    actors = [host1, host2, link1]
 
-    def action():
-        # There is no flow class, we just do stuff like this:
+    def setup_flow1():
         host1.generate_packets_to_send(host2.id, 20 * 10**6)
-    event_manager.add(0.5, action)
+    flows = [(0.5, setup_flow1)]
 
+    return actors, flows
+
+
+def simulate(description):
+    '''
+    Takes a string |description| of the network topology and flows.
+    Runs the simulation!
+    '''
+    actors, flows = get_actors_flows(description)
+    event_manager.set_actors(actors)
+    for start_time, setup_flow in flows:
+        event_manager.add(start_time, setup_flow)
     event_manager.run()
 
 
+def main_setup():
+    '''
+    This should be called at the beginning of main if you're running unit tests
+    or simulations.
+    It seeds the random number generator and sets the global variable
+    |event_manager|.
+    We need to set |event_manager| for most class definitions and helper
+    functions to make sense.
+    '''
+    random.seed(0)
+    global event_manager
+    event_manager = EventManager()
+
+
 if __name__ == '__main__':
-    simulate()
+    main_setup()
+    simulate(sys.stdin.read())
