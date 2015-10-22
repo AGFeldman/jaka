@@ -7,20 +7,19 @@ import sys
 
 description = json.loads(sys.stdin.read())
 
-def filter_by_equipment_type(first_letter):
+def filter_by_first_letter(first_letter):
     return [e for e in description if e['id'][0] == first_letter]
 
 def ids(mylist):
     return [x['id'] for x in mylist]
 
-links = filter_by_equipment_type('L')
-hosts = filter_by_equipment_type('H')
-routers = filter_by_equipment_type('R')
-switches = filter_by_equipment_type('S')
-flows = filter_by_equipment_type('F')
+links = filter_by_first_letter('L')
+hosts = filter_by_first_letter('H') + filter_by_first_letter('S') + filter_by_first_letter('T')
+routers = filter_by_first_letter('R')
+flows = filter_by_first_letter('F')
 
-# List of ids for all hosts, routers, and switches
-hrs_ids = ids(hosts) + ids(routers) + ids(switches)
+# List of ids for all hosts and routers
+hrs_ids = ids(hosts) + ids(routers)
 
 # Create a set of all link endpoints
 endpoints = []
@@ -28,7 +27,7 @@ for l in links:
     endpoints += l['endpoints']
 endpoints = set(endpoints)
 
-assert len(description) == len(links) + len(hosts) + len(routers) + len(switches) + len(flows)
+assert len(description) == len(links) + len(hosts) + len(routers) + len(flows)
 
 # Links should have 5 fields: id, endpoints, rate, delay, and buffer
 for l in links:
@@ -48,11 +47,6 @@ for h in hosts:
 # Routers should have 1 field: id
 for r in routers:
     assert len(r) == 1
-    assert r['id'] in endpoints
-
-# Switches should have 1 field: id
-for s in switches:
-    assert len(s) == 1
     assert r['id'] in endpoints
 
 # Flows should have 5 fields: id, src, dst, amount, and start
