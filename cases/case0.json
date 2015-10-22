@@ -1,0 +1,1 @@
+[{"id": "H1"}, {"id": "H2"}, {"delay": 0.01, "buffer": 64000, "rate": 10000000, "endpoints": ["H1", "H2"], "id": "L1"}, {"src": "H1", "dst": "H2", "id": "F1", "amount": 20000000, "start": 1}]
