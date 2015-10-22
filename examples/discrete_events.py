@@ -21,8 +21,6 @@
 # Network equipment ids are strings like 'H1' and 'L1'
 # Packet ids are integers
 #
-# TODO(agf): Should seed the randomness so it is reproducible
-#
 # Example usage of this example code:
 # time python -m cProfile -s time discrete_events.py < /dev/null > out
 
@@ -291,7 +289,7 @@ class Host(Device):
     def receive_packet(self, packet):
         assert packet.dst == self.id
         if packet.ack:
-            print 'Time', event_manager.get_time(), ':', self.id, 'received ack for', packet
+            event_manager.log('{} received ack for {}'.format(self.id, packet))
             assert packet.id in self.packets_waiting_for_acks
             original_packet = self.packets_waiting_for_acks[packet.id]
             if packet.src == original_packet.dst and packet.dst == original_packet.src:
@@ -342,6 +340,8 @@ def get_actors_flows(description):
 
     In this example code, |description| is printed and then ignored, and
     hard-coded network topology and flow are used.
+
+    TODO(agf): Other user inputs? Run for user-specified time?
     '''
     print 'Description:'
     print description
