@@ -22,12 +22,13 @@
 # Packet ids are integers
 #
 # Example usage of this example code:
-# time python -m cProfile -s time discrete_events.py < /dev/null > out
+# time python -m cProfile -s time discrete_events.py < ../cases/case0.json > out
 
 
 from __future__ import division
 import random
 import sys
+import json
 
 
 ACK_SIZE = 15  # or something
@@ -102,15 +103,15 @@ class EventManager(object):
 
 
 class Packet(object):
-    def __init__(self, id=None, src=None, dst=None, size=0, ack=False):
+    def __init__(self, id_=None, src=None, dst=None, size=0, ack=False):
         '''
-        id is used for both data packet and corresponding ack packet. This could change.
-        src is source_host.id
-        dst is destination_host.id
+        id_ is used for both data packet and corresponding ack packet. This could change.
+        src is source_host.id_
+        dst is destination_host.id_
         size is packet size in bytes
         ack is True iff this packet is an acknowledgement
         '''
-        self.id = id
+        self.id_ = id_
         self.src = src
         self.dst = dst
         self.size = size
@@ -118,8 +119,8 @@ class Packet(object):
 
     def __str__(self):
         if self.ack:
-            return '({}, {}, {}, ack)'.format(self.id, self.src, self.dst)
-        return '({}, {}, {})'.format(self.id, self.src, self.dst)
+            return '({}, {}, {}, ack)'.format(self.id_, self.src, self.dst)
+        return '({}, {}, {})'.format(self.id_, self.src, self.dst)
 
 
 class LinkEndpoint(object):
@@ -142,7 +143,7 @@ class LinkEndpoint(object):
             self.buffer.append((packet, event_manager.get_time()))
             self.buffer_space_free -= packet.size
         else:
-            event_manager.log('endpoint associated with {} dropped {}'.format(self.device.id, packet))
+            event_manager.log('endpoint associated with {} dropped {}'.format(self.device.id_, packet))
 
     def peek_lra(self):
         '''
@@ -164,7 +165,7 @@ class LinkEndpoint(object):
 
 
 class Link(object):
-    def __init__(self, id=None, device1=None, device2=None, rate=0, delay=0, buffer_size=0):
+    def __init__(self, id_=None, device1=None, device2=None, rate=0, delay=0, buffer_size=0):
         '''
         device1 and device2 should be Host, Router, or Switch objects
         rate is in bytes per second
@@ -173,7 +174,7 @@ class Link(object):
 
         self.state is either 'sending' or 'not_sending'
         '''
-        self.id = id
+        self.id_ = id_
         self.rate = rate
         self.delay = delay
 
@@ -217,7 +218,7 @@ class Link(object):
         assert not self.packet_on_link
         self.packet_on_link = src_endpoint.dequeue_lra()
         def packet_reaches_endpoint():
-            event_manager.log('{} delivered {} to the endpoint associated with {}'.format(self.id, self.packet_on_link, dst_endpoint.device.id))
+            event_manager.log('{} delivered {} to the endpoint associated with {}'.format(self.id_, self.packet_on_link, dst_endpoint.device.id_))
             dst_endpoint.device.receive_packet(self.packet_on_link)
             self.packet_on_link = None
         event_manager.add(self.transit_time(self.packet_on_link), packet_reaches_endpoint)
@@ -236,8 +237,8 @@ class Device(object):
 
     self.ports maps integers to LinkEndpoints
     '''
-    def __init__(self, id=None):
-        self.id = id
+    def __init__(self, id_=None):
+        self.id_ = id_
         # Currently, devices have an unlimited number of ports
         self.next_open_port = 0
         # map from port number to LinkEndpoint
@@ -262,8 +263,8 @@ class Device(object):
 
 
 class Host(Device):
-    def __init__(self, id=None):
-        super(Host, self).__init__(id=id)
+    def __init__(self, id_=None):
+        super(Host, self).__init__(id_=id_)
         # maybe it should have a list of packets to send, a list of packets
         # recieved and not processed yet, and a set of packets sent and still
         # waiting for acks
@@ -276,7 +277,7 @@ class Host(Device):
         self.in_sending_chain = False
 
     def generate_packet(self, dst_id):
-        self.packets_to_send.append(Packet(id=self.next_unused_packet_id, src=self.id, dst=dst_id, size=DATA_PACKET_SIZE, ack=False))
+        self.packets_to_send.append(Packet(id_=self.next_unused_packet_id, src=self.id_, dst=dst_id, size=DATA_PACKET_SIZE, ack=False))
         self.next_unused_packet_id += 1
 
     def generate_packets_to_send(self, dst_id, how_much_data):
@@ -287,30 +288,30 @@ class Host(Device):
             self.generate_packet(dst_id)
 
     def receive_packet(self, packet):
-        assert packet.dst == self.id
+        assert packet.dst == self.id_
         if packet.ack:
-            event_manager.log('{} received ack for {}'.format(self.id, packet))
-            assert packet.id in self.packets_waiting_for_acks
-            original_packet = self.packets_waiting_for_acks[packet.id]
+            event_manager.log('{} received ack for {}'.format(self.id_, packet))
+            assert packet.id_ in self.packets_waiting_for_acks
+            original_packet = self.packets_waiting_for_acks[packet.id_]
             if packet.src == original_packet.dst and packet.dst == original_packet.src:
-                del self.packets_waiting_for_acks[packet.id]
+                del self.packets_waiting_for_acks[packet.id_]
         else:
             # Send an ack
-            ack = Packet(id=packet.id, src=self.id, dst=packet.src, size=ACK_SIZE, ack=True)
+            ack = Packet(id_=packet.id_, src=self.id_, dst=packet.src, size=ACK_SIZE, ack=True)
             # Schedule the ack to be the next packet sent
             self.packets_to_send.insert(0, ack)
 
     def send_packet(self, packet, port):
         self.ports[port].receive_from_device(packet)
         if not packet.ack:
-            self.packets_waiting_for_acks[packet.id] = packet
+            self.packets_waiting_for_acks[packet.id_] = packet
             def ack_is_due():
-                if packet.id in self.packets_waiting_for_acks:
-                    event_manager.log('{} is due to receive an ack for {}, has not received it'.format(self.id, packet.id))
+                if packet.id_ in self.packets_waiting_for_acks:
+                    event_manager.log('{} is due to receive an ack for {}, has not received it'.format(self.id_, packet.id_))
                     self.packets_to_send.insert(0, packet)
                 else:
-                    event_manager.log('{} is due to receive an ack for {}, has already received it'.format(self.id, packet.id))
-            description = '{} is due to receive an ack for {}'.format(self.id, packet.id)
+                    event_manager.log('{} is due to receive an ack for {}, has already received it'.format(self.id_, packet.id_))
+            description = '{} is due to receive an ack for {}'.format(self.id_, packet.id_)
             event_manager.add(TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
 
     def act(self):
@@ -322,7 +323,7 @@ class Host(Device):
                     return
                 packet = self.packets_to_send.pop(0)
                 self.send_packet(packet, PORT)
-                event_manager.log('{} sent packet {} on port {}'.format(self.id, packet, PORT))
+                event_manager.log('{} sent packet {} on port {}'.format(self.id_, packet, PORT))
                 event_manager.add(TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
             event_manager.add(0, send_packet_and_schedule_next_send)
             return True
@@ -343,18 +344,49 @@ def get_actors_flows(description):
 
     TODO(agf): Other user inputs? Run for user-specified time?
     '''
-    print 'Description:'
-    print description
+    entities = json.loads(description)
 
-    host1 = Host(id='H1')
-    host2 = Host(id='H2')
-    link1 = Link(id='L1', device1=host1, device2=host2, rate=10**7, delay=0.010, buffer_size=64000)
-    actors = [host1, host2, link1]
+    def is_host(entity):
+        return entity['id'][0] in 'HST'
+    def is_link(entity):
+        return entity['id'][0] == 'L'
+    def is_router(entity):
+        return entity['id'][0] == 'R'
+    def is_flow(entity):
+        return entity['id'][0] == 'F'
 
-    def setup_flow1():
-        host1.generate_packets_to_send(host2.id, 20 * 10**6)
-    flows = [(0.5, setup_flow1)]
+    # Map from host id to host object
+    hosts_and_routers = dict()
 
+    for entity in entities:
+        if is_host(entity):
+            id_ = entity['id']
+            hosts_and_routers[id_] = Host(id_=id_)
+        if is_router(entity):
+            raise 'Routers are not supported yet!'
+
+    # Links need to be initialized after hosts and routers because Link
+    # constructor takes references to hosts/routers
+    links = []
+    for entity in entities:
+        if is_link(entity):
+            links.append(Link(id_=entity['id'],
+                              device1=hosts_and_routers[entity['endpoints'][0]],
+                              device2=hosts_and_routers[entity['endpoints'][1]],
+                              rate=entity['rate'],
+                              delay=entity['delay'],
+                              buffer_size=entity['buffer']))
+
+    flows = []
+    for entity in entities:
+        if is_flow(entity):
+            # TODO(agf): Assert that src and dst are hosts
+            def setup_flow():
+                hosts_and_routers[entity['src']].generate_packets_to_send(
+                        entity['dst'], entity['amount'])
+            flows.append((entity['start'], setup_flow))
+
+    actors = hosts_and_routers.values() + links
     return actors, flows
 
 
