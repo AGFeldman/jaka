@@ -6,4 +6,4 @@ Everything about this format should be intuitive, except maybe the following poi
 
 case*.py are used to generate the json files. For example, `python case0.py > case0.json`. You can also write straight json if you prefer. agf finds it easier to specify units in python, since you can say 10 * 10** 6 for '10 MB'.
 
-verify.py checks that test cases specified in json meet a certain format. This is automatically called on all case*.json files as part of `generate.sh`.  Run `python verify.py < caseX.json` to check a particular json file.
+../check_json.py checks that test cases specified in json meet a certain format. This is automatically called on all case*.json files as part of `generate.sh`.  Run `python ../check_json.py < caseX.json` to check a particular json file.

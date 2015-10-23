@@ -11,5 +11,5 @@ done
 for json_filename in case*.json
 do
     echo "Checking $json_filename for obvious errors"
-    python verify.py < $json_filename
+    python ../check_json.py < $json_filename
 done
