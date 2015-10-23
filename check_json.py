@@ -8,19 +8,18 @@ import sys
 
 
 def check(entity_list):
-    def filter_by_first_letter(first_letter):
-        return [e for e in entity_list if e['id'][0] == first_letter]
+    links = [e for e in entity_list if e['type'] == 'link']
+    hosts = [e for e in entity_list if e['type'] == 'host']
+    routers = [e for e in entity_list if e['type'] == 'router']
+    flows = [e for e in entity_list if e['type'] == 'flow']
+
+    assert len(entity_list) == len(links) + len(hosts) + len(routers) + len(flows)
 
     def ids(mylist):
         return [x['id'] for x in mylist]
 
-    links = filter_by_first_letter('L')
-    hosts = filter_by_first_letter('H') + filter_by_first_letter('S') + filter_by_first_letter('T')
-    routers = filter_by_first_letter('R')
-    flows = filter_by_first_letter('F')
-
     # List of ids for all hosts and routers
-    hrs_ids = ids(hosts) + ids(routers)
+    hr_ids = ids(hosts) + ids(routers)
 
     # Create a set of all link endpoints
     endpoints = []
@@ -28,33 +27,31 @@ def check(entity_list):
         endpoints += l['endpoints']
     endpoints = set(endpoints)
 
-    assert len(entity_list) == len(links) + len(hosts) + len(routers) + len(flows)
-
-    # Links should have 5 fields: id, endpoints, rate, delay, and buffer
+    # Links should have 6 fields: id, type, endpoints, rate, delay, and buffer
     for l in links:
-        assert len(l) == 5
+        assert len(l) == 6
         assert len(l['endpoints']) == 2
         e0, e1 = l['endpoints']
-        assert e0 in hrs_ids and e1 in hrs_ids
+        assert e0 in hr_ids and e1 in hr_ids
         assert l['rate'] >= 0
         assert l['delay'] >= 0
         assert l['buffer'] >= 0
 
-    # Hosts should have 1 field: id
+    # Hosts should have 2 fields: id and type
     for h in hosts:
-        assert len(h) == 1
+        assert len(h) == 2
         assert h['id'] in endpoints
 
-    # Routers should have 1 field: id
+    # Routers should have 2 fields: id and type
     for r in routers:
-        assert len(r) == 1
+        assert len(r) == 2
         assert r['id'] in endpoints
 
-    # Flows should have 5 fields: id, src, dst, amount, and start
+    # Flows should have 6 fields: id, type, src, dst, amount, and start
     for f in flows:
-        assert len(f) == 5
-        assert f['src'] in hrs_ids
-        assert f['dst'] in hrs_ids
+        assert len(f) == 6
+        assert f['src'] in hr_ids
+        assert f['dst'] in hr_ids
         assert f['amount'] >= 0
         assert f['start'] >= 0
 
