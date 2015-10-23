@@ -346,30 +346,21 @@ def get_actors_flows(description):
     '''
     entities = json.loads(description)
 
-    def is_host(entity):
-        return entity['id'][0] in 'HST'
-    def is_link(entity):
-        return entity['id'][0] == 'L'
-    def is_router(entity):
-        return entity['id'][0] == 'R'
-    def is_flow(entity):
-        return entity['id'][0] == 'F'
-
     # Map from host id to host object
     hosts_and_routers = dict()
 
     for entity in entities:
-        if is_host(entity):
+        if entity['type'] == 'host':
             id_ = entity['id']
             hosts_and_routers[id_] = Host(id_=id_)
-        if is_router(entity):
+        if entity['type'] == 'router':
             raise 'Routers are not supported yet!'
 
     # Links need to be initialized after hosts and routers because Link
     # constructor takes references to hosts/routers
     links = []
     for entity in entities:
-        if is_link(entity):
+        if entity['type'] == 'link':
             links.append(Link(id_=entity['id'],
                               device1=hosts_and_routers[entity['endpoints'][0]],
                               device2=hosts_and_routers[entity['endpoints'][1]],
@@ -379,8 +370,7 @@ def get_actors_flows(description):
 
     flows = []
     for entity in entities:
-        if is_flow(entity):
-            # TODO(agf): Assert that src and dst are hosts
+        if entity['type'] == 'flow':
             def setup_flow():
                 hosts_and_routers[entity['src']].generate_packets_to_send(
                         entity['dst'], entity['amount'])
