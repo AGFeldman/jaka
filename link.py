@@ -59,15 +59,18 @@ class Link(object):
         device1.plug_in_link(self.endpoint1)
         device2.plug_in_link(self.endpoint2)
 
-        self.packet_on_link = None
-
-    def transit_time(self, packet):
-        return packet.size / self.rate + self.delay
+        # TODO(agf): Make this global or user-specifiable
+        self.max_bytes_sent_in_sequence = 10 ** 5
+        self.bytes_sent_in_sequence = 0
+        self.packet_transmitting = None
+        self.waiting_prop_time = False
+        self.waiting_to_decide_direction = True
+        self.src_dst_endpoints = None
 
     def get_src_dst_endpoints(self):
         '''
-        Used to determine if we can load another packet onto the link, and, if
-        so, which direction the packet should travel
+        Used to determine what direction a packet should travel if we're
+        otherwise undecided
         '''
         if not self.endpoint1.buffer and not self.endpoint2.buffer:
             return
@@ -85,23 +88,54 @@ class Link(object):
                               (self.endpoint2, self.endpoint1)))
 
     def send(self, src_endpoint, dst_endpoint):
-        # TODO(agf): We should have one event for "finished loading packet into
-        # link" and another event, self.delay seconds later, for "finished
-        # delivering packet". In this way, multiple packets can exist in the
-        # link at one time. So, we should change self.packet_on_link to
-        # self.loading_packet_into_link. But, does this run into any issues
-        # with the link being half-duplex?
-        assert not self.packet_on_link
-        self.packet_on_link = src_endpoint.dequeue_lra()
-        def packet_reaches_endpoint():
-            globals_.event_manager.log('{} delivered {} to the endpoint associated with {}'.format(self.id_, self.packet_on_link, dst_endpoint.device.id_))
-            dst_endpoint.device.receive_packet(self.packet_on_link)
-            self.packet_on_link = None
-        globals_.event_manager.add(self.transit_time(self.packet_on_link), packet_reaches_endpoint)
+        assert self.packet_transmitting is None
+        self.packet_transmitting = src_endpoint.dequeue_lra()
+        def packet_finishes_transmitting():
+            packet = self.packet_transmitting
+            self.packet_transmitting = None
+            globals_.event_manager.log('{} finished transmitting {} from endpoint associated with {}'.format(self.id_, packet, src_endpoint.device.id_))
+            def packet_reaches_endpoint():
+                globals_.event_manager.log('{} delivered {} to the endpoint associated with {}'.format(self.id_, packet, dst_endpoint.device.id_))
+                dst_endpoint.device.receive_packet(packet)
+            globals_.event_manager.add(self.delay, packet_reaches_endpoint)
+        time_transmission_finishes = self.packet_transmitting.size / self.rate
+        globals_.event_manager.add(time_transmission_finishes, packet_finishes_transmitting)
 
     def act(self):
-        if self.packet_on_link:
-            return
-        src_dst_endpoints = self.get_src_dst_endpoints()
-        if src_dst_endpoints:
-            self.send(*src_dst_endpoints)
+        if self.waiting_prop_time or self.packet_transmitting:
+            return False
+        if self.waiting_to_decide_direction:
+            assert self.src_dst_endpoints is None
+            self.src_dst_endpoints = self.get_src_dst_endpoints()
+            if self.src_dst_endpoints is None:
+                # There is still nothing to send, so we are still waiting to decide direction
+                return False
+            self.waiting_to_decide_direction = False
+
+        # We know what direction we want to send
+        src, dst = self.src_dst_endpoints
+        max_size_can_send = self.max_bytes_sent_in_sequence - self.bytes_sent_in_sequence
+        if not src.buffer or src.peek_lra()[0].size > max_size_can_send:
+            # We can't send any more in this sequence
+            # So, wait a propagation time, and then (probably) switch src and dst
+            self.waiting_prop_time = True
+            self.bytes_sent_in_sequence = 0
+            def done_waiting_prop_time():
+                self.waiting_prop_time = False
+                if dst.buffer:
+                    # If the other buffer has stuff to send, let switch direction to let it send
+                    self.src_dst_endpoints = dst, src
+                    return
+                if src.buffer:
+                    # If the other buffer has no stuff to send, but this one does, then maintain direction
+                    return
+                # There is nothing to send
+                self.src_dst_endpoints = None
+                self.waiting_to_decide_direction = True
+            globals_.event_manager.add(self.delay, done_waiting_prop_time)
+            # Our action didn't affect anything else, so return False
+            return False
+
+        self.bytes_sent_in_sequence += src.peek_lra()[0].size
+        self.send(src, dst)
+        return True
