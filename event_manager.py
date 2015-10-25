@@ -1,7 +1,5 @@
 import random
 
-import globals_
-
 
 class EventManager(object):
     '''

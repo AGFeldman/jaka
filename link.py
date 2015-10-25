@@ -1,3 +1,5 @@
+import random
+
 import globals_
 
 
@@ -20,7 +22,8 @@ class LinkEndpoint(object):
             self.buffer.append((packet, globals_.event_manager.get_time()))
             self.buffer_space_free -= packet.size
         else:
-            globals_.event_manager.log('endpoint associated with {} dropped {}'.format(self.device.id_, packet))
+            globals_.event_manager.log('endpoint associated with {} dropped {}'.format(
+                self.device.id_, packet))
 
     def peek_lra(self):
         '''
@@ -93,9 +96,13 @@ class Link(object):
         def packet_finishes_transmitting():
             packet = self.packet_transmitting
             self.packet_transmitting = None
-            globals_.event_manager.log('{} finished transmitting {} from endpoint associated with {}'.format(self.id_, packet, src_endpoint.device.id_))
+            globals_.event_manager.log(
+                    '{} finished transmitting {} from endpoint associated with {}'.format(
+                        self.id_, packet, src_endpoint.device.id_))
             def packet_reaches_endpoint():
-                globals_.event_manager.log('{} delivered {} to the endpoint associated with {}'.format(self.id_, packet, dst_endpoint.device.id_))
+                globals_.event_manager.log(
+                        '{} delivered {} to the endpoint associated with {}'.format(
+                            self.id_, packet, dst_endpoint.device.id_))
                 dst_endpoint.device.receive_packet(packet)
             globals_.event_manager.add(self.delay, packet_reaches_endpoint)
         time_transmission_finishes = self.packet_transmitting.size / self.rate
@@ -127,7 +134,8 @@ class Link(object):
                     self.src_dst_endpoints = dst, src
                     return
                 if src.buffer:
-                    # If the other buffer has no stuff to send, but this one does, then maintain direction
+                    # If the other buffer has no stuff to send, but this one
+                    # does, then maintain direction
                     return
                 # There is nothing to send
                 self.src_dst_endpoints = None

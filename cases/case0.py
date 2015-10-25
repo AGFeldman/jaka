@@ -7,7 +7,14 @@ import json
 description = [
     {'id': 'H1', 'type': 'host'},
     {'id': 'H2', 'type': 'host'},
-    {'id': 'L1', 'type': 'link', 'endpoints': ['H1', 'H2'], 'rate': 10 * 10**6, 'delay': 10 * 10**-3, 'buffer': 64 * 10**3},
+    {
+        'id': 'L1',
+        'type': 'link',
+        'endpoints': ['H1', 'H2'],
+        'rate': 10 * 10**6,
+        'delay': 10 * 10**-3,
+        'buffer': 64 * 10**3
+        },
     {'id': 'F1', 'type': 'flow', 'src': 'H1', 'dst': 'H2', 'amount': 20 * 10**6, 'start': 1},
     ]
 

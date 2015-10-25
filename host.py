@@ -19,7 +19,11 @@ class Host(Device):
         self.in_sending_chain = False
 
     def generate_packet(self, dst_id):
-        self.packets_to_send.append(Packet(id_=self.next_unused_packet_id, src=self.id_, dst=dst_id, size=globals_.DATA_PACKET_SIZE, ack=False))
+        self.packets_to_send.append(Packet(id_=self.next_unused_packet_id,
+                                           src=self.id_,
+                                           dst=dst_id,
+                                           size=globals_.DATA_PACKET_SIZE,
+                                           ack=False))
         self.next_unused_packet_id += 1
 
     def generate_packets_to_send(self, dst_id, how_much_data):
@@ -39,7 +43,11 @@ class Host(Device):
                 del self.packets_waiting_for_acks[packet.id_]
         else:
             # Send an ack
-            ack = Packet(id_=packet.id_, src=self.id_, dst=packet.src, size=globals_.ACK_SIZE, ack=True)
+            ack = Packet(id_=packet.id_,
+                         src=self.id_,
+                         dst=packet.src,
+                         size=globals_.ACK_SIZE,
+                         ack=True)
             # Schedule the ack to be the next packet sent
             self.packets_to_send.insert(0, ack)
 
@@ -49,11 +57,14 @@ class Host(Device):
             self.packets_waiting_for_acks[packet.id_] = packet
             def ack_is_due():
                 if packet.id_ in self.packets_waiting_for_acks:
-                    globals_.event_manager.log('{} is due to receive an ack for {}, has not received it'.format(self.id_, packet.id_))
+                    globals_.event_manager.log(
+                            '{} is due to receive an ack for {}, has not received it'.format(
+                                self.id_, packet.id_))
                     self.packets_to_send.insert(0, packet)
                 else:
-                    globals_.event_manager.log('{} is due to receive an ack for {}, has already received it'.format(self.id_, packet.id_))
-            description = '{} is due to receive an ack for {}'.format(self.id_, packet.id_)
+                    globals_.event_manager.log(
+                            '{} is due to receive an ack for {}, has already received it'.format(
+                                self.id_, packet.id_))
             globals_.event_manager.add(globals_.TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
 
     def act(self):
@@ -65,8 +76,10 @@ class Host(Device):
                     return
                 packet = self.packets_to_send.pop(0)
                 self.send_packet(packet, globals_.PORT)
-                globals_.event_manager.log('{} sent packet {} on port {}'.format(self.id_, packet, globals_.PORT))
-                globals_.event_manager.add(globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
+                globals_.event_manager.log('{} sent packet {} on port {}'.format(
+                    self.id_, packet, globals_.PORT))
+                globals_.event_manager.add(
+                        globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
             globals_.event_manager.add(0, send_packet_and_schedule_next_send)
             return True
         return False

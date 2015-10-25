@@ -5,8 +5,7 @@ import json
 import globals_
 
 from event_manager import EventManager
-from packet import Packet
-from link import Link, LinkEndpoint
+from link import Link
 from host import Host
 
 import check_json
