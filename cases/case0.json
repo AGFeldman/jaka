@@ -1,0 +1,1 @@
+[{"type": "host", "id": "H1"}, {"type": "host", "id": "H2"}, {"buffer": 64000, "delay": 0.01, "rate": 10000000, "endpoints": ["H1", "H2"], "type": "link", "id": "L1"}, {"src": "H1", "dst": "H2", "start": 1, "amount": 20000000, "type": "flow", "id": "F1"}]
