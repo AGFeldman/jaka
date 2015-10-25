@@ -21,7 +21,7 @@ description = [
         'endpoints': ['R1', 'R2'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L2',
@@ -29,7 +29,7 @@ description = [
         'endpoints': ['R2', 'R3'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L3',
@@ -37,7 +37,7 @@ description = [
         'endpoints': ['R3', 'R4'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L4',
@@ -45,7 +45,7 @@ description = [
         'endpoints': ['R1', 'S2'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L5',
@@ -53,7 +53,7 @@ description = [
         'endpoints': ['R2', 'T2'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L6',
@@ -61,7 +61,7 @@ description = [
         'endpoints': ['R3', 'S3'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L7',
@@ -69,7 +69,7 @@ description = [
         'endpoints': ['R4', 'T1'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L8',
@@ -77,7 +77,7 @@ description = [
         'endpoints': ['R1', 'S1'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
     {
         'id': 'L9',
@@ -85,11 +85,11 @@ description = [
         'endpoints': ['R4', 'T3'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 128 * 10**3
+        'buffer': 128 * 10**3 * 8
         },
-    {'id': 'F1', 'type': 'flow', 'src': 'S1', 'dst': 'T1', 'amount': 35 * 10**6, 'start': 0.5},
-    {'id': 'F2', 'type': 'flow', 'src': 'S2', 'dst': 'T2', 'amount': 15 * 10**6, 'start': 10},
-    {'id': 'F3', 'type': 'flow', 'src': 'S3', 'dst': 'T3', 'amount': 30 * 10**6, 'start': 20},
+    {'id': 'F1', 'type': 'flow', 'src': 'S1', 'dst': 'T1', 'amount': 35 * 10**6 * 8, 'start': 0.5},
+    {'id': 'F2', 'type': 'flow', 'src': 'S2', 'dst': 'T2', 'amount': 15 * 10**6 * 8, 'start': 10},
+    {'id': 'F3', 'type': 'flow', 'src': 'S3', 'dst': 'T3', 'amount': 30 * 10**6 * 8, 'start': 20},
     ]
 
 print json.dumps(description)

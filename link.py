@@ -1,3 +1,5 @@
+from __future__ import division
+
 import random
 
 import globals_
@@ -6,8 +8,8 @@ import globals_
 class LinkEndpoint(object):
     def __init__(self, device=None, buffer_size=0):
         '''
-        buffer_size is in bytes
-        buffer_space_free is in bytes
+        buffer_size is in bits
+        buffer_space_free is in bits
         '''
         self.device = device
         self.buffer_size = buffer_size
@@ -48,9 +50,9 @@ class Link(object):
     def __init__(self, id_=None, device1=None, device2=None, rate=0, delay=0, buffer_size=0):
         '''
         device1 and device2 should be Host, Router, or Switch objects
-        rate is in bytes per second
+        rate is in bits per second
         delay is in seconds
-        buffer_size is in bytes
+        buffer_size is in bits
         self.state is either 'sending' or 'not_sending'
         '''
         self.id_ = id_
@@ -63,8 +65,8 @@ class Link(object):
         device2.plug_in_link(self.endpoint2)
 
         # TODO(agf): Make this global or user-specifiable
-        self.max_bytes_sent_in_sequence = 10 ** 5
-        self.bytes_sent_in_sequence = 0
+        self.max_bits_sent_in_sequence = 10 ** 5
+        self.bits_sent_in_sequence = 0
         self.packet_transmitting = None
         self.waiting_prop_time = False
         self.waiting_to_decide_direction = True
@@ -121,12 +123,12 @@ class Link(object):
 
         # We know what direction we want to send
         src, dst = self.src_dst_endpoints
-        max_size_can_send = self.max_bytes_sent_in_sequence - self.bytes_sent_in_sequence
+        max_size_can_send = self.max_bits_sent_in_sequence - self.bits_sent_in_sequence
         if not src.buffer or src.peek_lra()[0].size > max_size_can_send:
             # We can't send any more in this sequence
             # So, wait a propagation time, and then (probably) switch src and dst
             self.waiting_prop_time = True
-            self.bytes_sent_in_sequence = 0
+            self.bits_sent_in_sequence = 0
             def done_waiting_prop_time():
                 self.waiting_prop_time = False
                 if dst.buffer:
@@ -144,6 +146,6 @@ class Link(object):
             # Our action didn't affect anything else, so return False
             return False
 
-        self.bytes_sent_in_sequence += src.peek_lra()[0].size
+        self.bits_sent_in_sequence += src.peek_lra()[0].size
         self.send(src, dst)
         return True

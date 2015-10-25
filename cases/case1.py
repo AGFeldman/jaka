@@ -17,7 +17,7 @@ description = [
         'endpoints': ['H1', 'R1'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
     {
         'id': 'L1',
@@ -25,7 +25,7 @@ description = [
         'endpoints': ['R1', 'R2'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
     {
         'id': 'L2',
@@ -33,7 +33,7 @@ description = [
         'endpoints': ['R1', 'R3'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
     {
         'id': 'L3',
@@ -41,7 +41,7 @@ description = [
         'endpoints': ['R2', 'R4'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
     {
         'id': 'L4',
@@ -49,7 +49,7 @@ description = [
         'endpoints': ['R3', 'R4'],
         'rate': 10 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
     {
         'id': 'L5',
@@ -57,9 +57,9 @@ description = [
         'endpoints': ['R4', 'H2'],
         'rate': 12.5 * 10**6,
         'delay': 10 * 10**-3,
-        'buffer': 64 * 10**3
+        'buffer': 64 * 10**3 * 8
         },
-    {'id': 'F1', 'type': 'flow', 'src': 'H1', 'dst': 'H2', 'amount': 20 * 10**6, 'start': 0.5},
+    {'id': 'F1', 'type': 'flow', 'src': 'H1', 'dst': 'H2', 'amount': 20 * 10**6 * 8, 'start': 0.5},
     ]
 
 print json.dumps(description)

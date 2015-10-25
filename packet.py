@@ -4,7 +4,7 @@ class Packet(object):
         id_ is used for both data packet and corresponding ack packet. This could change.
         src is source_host.id_
         dst is destination_host.id_
-        size is packet size in bytes
+        size is packet size in bits
         ack is True iff this packet is an acknowledgement
         '''
         self.id_ = id_
