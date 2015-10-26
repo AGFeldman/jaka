@@ -7,6 +7,7 @@ import globals_
 from event_manager import EventManager
 from link import Link
 from host import Host
+from flow import Flow
 
 import check_json
 
@@ -53,10 +54,11 @@ def get_actors_flows(description):
     flows = []
     for entity in entities:
         if entity['type'] == 'flow':
-            def setup_flow():
-                hosts_and_routers[entity['src']].generate_packets_to_send(
-                        entity['dst'], entity['amount'])
-            flows.append((entity['start'], setup_flow))
+            flows.append(Flow(id_=entity['id'],
+                              start=entity['start'],
+                              amount=entity['amount'],
+                              src_obj=hosts_and_routers[entity['src']],
+                              dst_obj=hosts_and_routers[entity['dst']]))
 
     actors = hosts_and_routers.values() + links
     return actors, flows
@@ -69,8 +71,8 @@ def simulate(description):
     '''
     actors, flows = get_actors_flows(description)
     globals_.event_manager.set_actors(actors)
-    for start_time, setup_flow in flows:
-        globals_.event_manager.add(start_time, setup_flow)
+    for flow in flows:
+        flow.schedule_with_event_manager()
     globals_.event_manager.run()
 
 

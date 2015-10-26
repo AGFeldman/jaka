@@ -1,5 +1,5 @@
 class Packet(object):
-    def __init__(self, id_=None, src=None, dst=None, size=0, ack=False):
+    def __init__(self, id_=None, src=None, dst=None, size=0, ack=False, flow=None):
         '''
         id_ is used for both data packet and corresponding ack packet. This could change.
         src is source_host.id_
@@ -12,6 +12,7 @@ class Packet(object):
         self.dst = dst
         self.size = size
         self.ack = ack
+        self.flow = flow
 
     def __str__(self):
         if self.ack:

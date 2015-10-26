@@ -20,20 +20,14 @@ class Host(Device):
         self.next_unused_packet_id = 0
         self.in_sending_chain = False
 
-    def generate_packet(self, dst_id):
+    def generate_packet(self, dst_id, flow):
         self.packets_to_send.append(Packet(id_=self.next_unused_packet_id,
                                            src=self.id_,
                                            dst=dst_id,
                                            size=globals_.DATA_PACKET_SIZE,
-                                           ack=False))
+                                           ack=False,
+                                           flow=flow))
         self.next_unused_packet_id += 1
-
-    def generate_packets_to_send(self, dst_id, how_much_data):
-        npackets = how_much_data // globals_.DATA_PACKET_SIZE
-        if how_much_data % globals_.DATA_PACKET_SIZE != 0:
-            npackets += 1
-        for _ in xrange(npackets):
-            self.generate_packet(dst_id)
 
     def receive_packet(self, packet):
         assert packet.dst == self.id_
@@ -44,6 +38,8 @@ class Host(Device):
             if packet.src == original_packet.dst and packet.dst == original_packet.src:
                 del self.packets_waiting_for_acks[packet.id_]
         else:
+            # Log reception for statistics
+            packet.flow.log_packet_received()
             # Send an ack
             ack = Packet(id_=packet.id_,
                          src=self.id_,
