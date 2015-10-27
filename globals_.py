@@ -6,4 +6,3 @@ DATA_PACKET_SIZE = 1024 * 8  # 1024 bytes
 # These are heavy-handed simplifications
 TIME_BETWEEN_SENDS = 1  # 1 second
 TIME_TO_WAIT_UNTIL_ACK = 10  # 10 seconds
-PORT = 0

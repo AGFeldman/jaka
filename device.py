@@ -1,28 +1,34 @@
+import random
+
+
 class Device(object):
     '''
     Hosts, Routers, and Switches are Devices
-    self.ports maps integers to LinkEndpoints
     '''
-    def __init__(self, id_=None):
+    def __init__(self, id_):
         self.id_ = id_
-        # Currently, devices have an unlimited number of ports
-        self.next_open_port = 0
-        # map from port number to LinkEndpoint
-        self.ports = dict()
+        # Map from host ids to LinkEndpoints
+        self.routing_table = dict()
+
+        # TODO(agf): This line is temporary. Remove it when we support routing tables.
+        self.link_endpoints = []
 
     def plug_in_link(self, link_endpoint):
         '''
         link_endpoint should be a LinkEndpoint
         '''
-        self.ports[self.next_open_port] = link_endpoint
-        self.next_open_port += 1
+        # TODO(agf): This line is temporary. Remove it when we support routing tables.
+        self.link_endpoints.append(link_endpoint)
 
-    def send_packet(self, packet=None, port=None):
+    def get_endpoint_for_outgoing_packet(self, packet):
+        if packet.dst in self.routing_table:
+            return self.routing_table[packet.dst]
+
+        # TODO(agf): This line is temporary. Remove it when we support routing tables.
+        return random.choice(self.link_endpoints)
+
+    def send_packet(self, packet):
         raise NotImplementedError
-        # TODO(agf): There could be a very small time that it takes to send
-        # into link buffer, during which time the device might not be able to
-        # receive from the link. Or maybe this is a lie.
 
     def recieve_packet(self, packet):
-        # Should examine packet src and send ack
         raise NotImplementedError
