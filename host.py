@@ -7,20 +7,24 @@ from packet import Packet
 
 
 class Host(Device):
-    def __init__(self, id_=None):
-        super(Host, self).__init__(id_=id_)
-        # maybe it should have a list of packets to send, a list of packets
-        # recieved and not processed yet, and a set of packets sent and still
-        # waiting for acks
+    def __init__(self, id_):
+        super(Host, self).__init__(id_)
+
+        # A list of packets that we still need to send
         self.packets_to_send = []
-        # map from packet id to packet
-        # TODO(agf): This relies on packet ids being unique over all the
-        # packets sent by any one host
+
+        # Map from packet id to packet object
         self.packets_waiting_for_acks = dict()
+
+        # The data packets this host sends will have the ids 0, 1, 2, ...
         self.next_unused_packet_id = 0
+
         self.in_sending_chain = False
 
     def generate_packet(self, dst_id, flow):
+        '''
+        Initialize a packet and add it to the list self.packets_to_send
+        '''
         self.packets_to_send.append(Packet(id_=self.next_unused_packet_id,
                                            src=self.id_,
                                            dst=dst_id,
@@ -30,6 +34,10 @@ class Host(Device):
         self.next_unused_packet_id += 1
 
     def receive_packet(self, packet):
+        # TODO(agf): This line is temporary. Remove it when we support routing tables.
+        if packet.dst != self.id_:
+            return
+
         assert packet.dst == self.id_
         if packet.ack:
             globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
@@ -40,17 +48,17 @@ class Host(Device):
         else:
             # Log reception for statistics
             packet.flow.log_packet_received()
-            # Send an ack
+            # Create an ack packet and insert it to the front of our list of packets to send
+            # So, this ack should be the next packet sent
             ack = Packet(id_=packet.id_,
                          src=self.id_,
                          dst=packet.src,
                          size=globals_.ACK_SIZE,
                          ack=True)
-            # Schedule the ack to be the next packet sent
             self.packets_to_send.insert(0, ack)
 
-    def send_packet(self, packet, port):
-        self.ports[port].receive_from_device(packet)
+    def send_packet(self, packet):
+        self.get_endpoint_for_outgoing_packet(packet).receive_from_device(packet)
         if not packet.ack:
             self.packets_waiting_for_acks[packet.id_] = packet
             def ack_is_due():
@@ -73,9 +81,8 @@ class Host(Device):
                     self.in_sending_chain = False
                     return
                 packet = self.packets_to_send.pop(0)
-                self.send_packet(packet, globals_.PORT)
-                globals_.event_manager.log('{} sent packet {} on port {}'.format(
-                    self.id_, packet, globals_.PORT))
+                self.send_packet(packet)
+                globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
                 globals_.event_manager.add(
                         globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
             globals_.event_manager.add(0, send_packet_and_schedule_next_send)

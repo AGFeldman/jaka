@@ -7,6 +7,7 @@ import globals_
 from event_manager import EventManager
 from link import Link
 from host import Host
+from router import Router
 from flow import Flow
 
 import check_json
@@ -20,11 +21,6 @@ def get_actors_flows(description):
     in the network. These objects should be initialized.
     |flows| is a list of elements of the form (time, setup_function).
     |time| is the time, in seconds, at which the flow starts.
-
-    In this example code, |description| is printed and then ignored, and
-    hard-coded network topology and flow are used.
-
-    TODO(agf): Other user inputs? Run for user-specified time?
     '''
     entities = json.loads(description)
     check_json.check(entities)
@@ -35,9 +31,10 @@ def get_actors_flows(description):
     for entity in entities:
         if entity['type'] == 'host':
             id_ = entity['id']
-            hosts_and_routers[id_] = Host(id_=id_)
+            hosts_and_routers[id_] = Host(id_)
         if entity['type'] == 'router':
-            raise 'Routers are not supported yet!'
+            id_ = entity['id']
+            hosts_and_routers[id_] = Router(id_)
 
     # Links need to be initialized after hosts and routers because Link
     # constructor takes references to hosts/routers
