@@ -33,6 +33,13 @@ class EventManager(object):
     def log(self, msg):
         print 'Time', self.get_time(), ':', msg
 
+    def register_network(self, network):
+        actors = network.get_actors()
+        flows = network.get_flows()
+        self.set_actors(actors)
+        for flow in flows:
+            flow.schedule_with_event_manager()
+
     def set_actors(self, actors):
         self.actors = actors
 
