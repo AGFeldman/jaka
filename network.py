@@ -65,3 +65,29 @@ class Network(object):
     def get_flows(self):
         # Returns a list of the flows.
         return self.flows.values()
+
+    def gen_dot(self):
+        # Generate a DOT representation of the network and
+        # return it as a string.
+        dot = ""
+        dot += "graph {\n"
+        for id_, dev in self.devices.iteritems():
+            if isinstance(dev, Host):
+                dot += "%s [shape = box];" % id_
+            elif isinstance(dev, Router):
+                dot += "%s [shape = oval];" % id_
+            else:
+                dot += "%s ;" % id_
+
+        for id_, link in self.links.iteritems():
+            dot += "%s -- %s [label = \"%s\"] ;" % \
+                   (link.endpoint1.device.id_,
+                    link.endpoint2.device.id_,
+                    link.id_)
+        dot += "}"
+        return dot
+
+    def print_dot(self):
+        # Generate a DOT representation of the network and
+        # write to stdout
+        print self.gen_dot()
