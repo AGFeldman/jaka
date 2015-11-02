@@ -17,7 +17,7 @@ description = [
         'buffer': 64 * 10**3 * 8
         },
     {
-        'id': 'L1',
+        'id': 'L2',
         'type': 'link',
         'endpoints': ['R1', 'H2'],
         'rate': 10 * 10**6,
