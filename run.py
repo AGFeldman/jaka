@@ -5,68 +5,21 @@ import json
 import globals_
 
 from event_manager import EventManager
-from link import Link
-from host import Host
-from router import Router
-from flow import Flow
+from network import Network
+from file_parser import FileParser
 
-import check_json
-
-
-def get_actors_flows(description):
-    '''
-    Takes a string |description| of the network topology and flows.
-    Parses |description| and returns (actors, flows).
-    |actors| is a list of objects associated with all the pieces of equipment
-    in the network. These objects should be initialized.
-    |flows| is a list of elements of the form (time, setup_function).
-    |time| is the time, in seconds, at which the flow starts.
-    '''
-    entities = json.loads(description)
-    check_json.check(entities)
-
-    # Map from host id to host object
-    hosts_and_routers = dict()
-
-    for entity in entities:
-        if entity['type'] == 'host':
-            id_ = entity['id']
-            hosts_and_routers[id_] = Host(id_)
-        if entity['type'] == 'router':
-            id_ = entity['id']
-            hosts_and_routers[id_] = Router(id_)
-
-    # Links need to be initialized after hosts and routers because Link
-    # constructor takes references to hosts/routers
-    links = []
-    for entity in entities:
-        if entity['type'] == 'link':
-            links.append(Link(id_=entity['id'],
-                              device1=hosts_and_routers[entity['endpoints'][0]],
-                              device2=hosts_and_routers[entity['endpoints'][1]],
-                              rate=entity['rate'],
-                              delay=entity['delay'],
-                              buffer_size=entity['buffer']))
-
-    flows = []
-    for entity in entities:
-        if entity['type'] == 'flow':
-            flows.append(Flow(id_=entity['id'],
-                              start=entity['start'],
-                              amount=entity['amount'],
-                              src_obj=hosts_and_routers[entity['src']],
-                              dst_obj=hosts_and_routers[entity['dst']]))
-
+'''
     actors = hosts_and_routers.values() + links
     return actors, flows
+'''
 
-
-def simulate(description):
+def simulate(network):
     '''
-    Takes a string |description| of the network topology and flows.
+    Takes a network.
     Runs the simulation!
     '''
-    actors, flows = get_actors_flows(description)
+    actors = network.getActors()
+    flows = network.getFlows()
     globals_.event_manager.set_actors(actors)
     for flow in flows:
         flow.schedule_with_event_manager()
@@ -85,7 +38,13 @@ def main_setup():
     random.seed(0)
     globals_.event_manager = EventManager()
 
-
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print "Usage: %s test_file.json" % sys.argv[0]
+        sys.exit(-1)
+
     main_setup()
-    simulate(sys.stdin.read())
+    file_parser = FileParser()
+    network = file_parser.create_network(sys.argv[1])
+    simulate(network)
+    #simulate(sys.stdin.read())
