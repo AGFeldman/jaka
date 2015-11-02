@@ -3,6 +3,7 @@ from host import Host
 from router import Router
 from flow import Flow
 
+
 class Network(object):
     '''
     Represents a collection of Devices and Links constituting
@@ -14,19 +15,19 @@ class Network(object):
         self.links = dict()
         self.flows = dict()
 
-    def addHost(self, id_):
+    def add_host(self, id_):
         # Adds a Host object to the network
         if id_ in self.devices:
             raise ValueError("Duplicate Host/Router ID")
         self.devices[id_] = Host(id_)
 
-    def addRouter(self, id_):
+    def add_router(self, id_):
         # Adds a Router object to the network
         if id_ in self.devices:
             raise ValueError("Duplicate Host/Router ID")
         self.devices[id_] = Router(id_)
 
-    def addLink(self, id_, dev_id_1, dev_id_2, rate, delay, buf_size):
+    def add_link(self, id_, dev_id_1, dev_id_2, rate, delay, buf_size):
         # Adds a Link object to the network
         if id_ in self.links:
             raise ValueError("Duplicate Link ID")
@@ -40,7 +41,7 @@ class Network(object):
                                delay=delay,
                                buffer_size=buf_size)
 
-    def addFlow(self, id_, start, amount, src_id, dst_id):
+    def add_flow(self, id_, start, amount, src_id, dst_id):
         # Adds a Flow to the network
         if id_ in self.flows:
             raise ValueError("Duplicate Flow ID")
@@ -56,11 +57,11 @@ class Network(object):
                                src_obj=self.devices[src_id],
                                dst_obj=self.devices[dst_id])
 
-    def getActors(self):
+    def get_actors(self):
         # Returns a list of all actors in the network.
         # This includes Hosts, Routers, and Links
         return self.devices.values() + self.links.values()
-        
-    def getFlows(self):
+
+    def get_flows(self):
         # Returns a list of the flows.
         return self.flows.values()

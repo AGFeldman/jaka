@@ -1,28 +1,18 @@
 import random
 import sys
-import json
 
 import globals_
 
 from event_manager import EventManager
-from network import Network
 from file_parser import FileParser
 
-'''
-    actors = hosts_and_routers.values() + links
-    return actors, flows
-'''
 
 def simulate(network):
     '''
     Takes a network.
     Runs the simulation!
     '''
-    actors = network.getActors()
-    flows = network.getFlows()
-    globals_.event_manager.set_actors(actors)
-    for flow in flows:
-        flow.schedule_with_event_manager()
+    globals_.event_manager.register_network(network)
     globals_.event_manager.run()
 
 
@@ -47,4 +37,3 @@ if __name__ == '__main__':
     file_parser = FileParser()
     network = file_parser.create_network(sys.argv[1])
     simulate(network)
-    #simulate(sys.stdin.read())
