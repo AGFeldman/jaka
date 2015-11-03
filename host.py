@@ -21,17 +21,11 @@ class Host(Device):
 
         self.in_sending_chain = False
 
-    def generate_packet(self, dst_id, flow):
-        '''
-        Initialize a packet and add it to the list self.packets_to_send
-        '''
-        self.packets_to_send.append(Packet(id_=self.next_unused_packet_id,
-                                           src=self.id_,
-                                           dst=dst_id,
-                                           size=globals_.DATA_PACKET_SIZE,
-                                           ack=False,
-                                           flow=flow))
-        self.next_unused_packet_id += 1
+        # A list of flow objects whose source is this host
+        self.flows = []
+
+    def add_flow(self, flow_obj):
+        self.flows.append(flow_obj)
 
     def receive_packet(self, packet):
         # TODO(agf): This line is temporary. Remove it when we support routing tables.
@@ -40,11 +34,13 @@ class Host(Device):
 
         assert packet.dst == self.id_
         if packet.ack:
-            globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
-            assert packet.id_ in self.packets_waiting_for_acks
-            original_packet = self.packets_waiting_for_acks[packet.id_]
-            if packet.src == original_packet.dst and packet.dst == original_packet.src:
-                del self.packets_waiting_for_acks[packet.id_]
+            # TODO(agf): I'm here
+        # if packet.ack:
+        #     globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
+        #     assert packet.id_ in self.packets_waiting_for_acks
+        #     original_packet = self.packets_waiting_for_acks[packet.id_]
+        #     if packet.src == original_packet.dst and packet.dst == original_packet.src:
+        #         del self.packets_waiting_for_acks[packet.id_]
         else:
             # Log reception for statistics
             packet.flow.log_packet_received()
@@ -55,36 +51,39 @@ class Host(Device):
                          dst=packet.src,
                          size=globals_.ACK_SIZE,
                          ack=True)
-            self.packets_to_send.insert(0, ack)
+            # TODO(agf): Do we really want to send acks immediately?
+            self.send_packet(ack)
 
     def send_packet(self, packet):
         self.get_endpoint_for_outgoing_packet(packet).receive_from_device(packet)
-        if not packet.ack:
-            self.packets_waiting_for_acks[packet.id_] = packet
-            def ack_is_due():
-                if packet.id_ in self.packets_waiting_for_acks:
-                    globals_.event_manager.log(
-                            '{} is due to receive an ack for {}, has not received it'.format(
-                                self.id_, packet.id_))
-                    self.packets_to_send.insert(0, packet)
-                else:
-                    globals_.event_manager.log(
-                            '{} is due to receive an ack for {}, has already received it'.format(
-                                self.id_, packet.id_))
-            globals_.event_manager.add(globals_.TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
+        # if not packet.ack:
+        #     self.packets_waiting_for_acks[packet.id_] = packet
+        #     def ack_is_due():
+        #         if packet.id_ in self.packets_waiting_for_acks:
+        #             globals_.event_manager.log(
+        #                     '{} is due to receive an ack for {}, has not received it'.format(
+        #                         self.id_, packet.id_))
+        #             self.packets_to_send.insert(0, packet)
+        #         else:
+        #             globals_.event_manager.log(
+        #                     '{} is due to receive an ack for {}, has already received it'.format(
+        #                         self.id_, packet.id_))
+        #     globals_.event_manager.add(globals_.TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
 
     def act(self):
-        if not self.in_sending_chain and self.packets_to_send:
-            self.in_sending_chain = True
-            def send_packet_and_schedule_next_send():
-                if not self.packets_to_send:
-                    self.in_sending_chain = False
-                    return
-                packet = self.packets_to_send.pop(0)
-                self.send_packet(packet)
-                globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
-                globals_.event_manager.add(
-                        globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
-            globals_.event_manager.add(0, send_packet_and_schedule_next_send)
-            return True
         return False
+        # for flow in
+        # if not self.in_sending_chain and self.packets_to_send:
+        #     self.in_sending_chain = True
+        #     def send_packet_and_schedule_next_send():
+        #         if not self.packets_to_send:
+        #             self.in_sending_chain = False
+        #             return
+        #         packet = self.packets_to_send.pop(0)
+        #         self.send_packet(packet)
+        #         globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
+        #         globals_.event_manager.add(
+        #                 globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
+        #     globals_.event_manager.add(0, send_packet_and_schedule_next_send)
+        #     return True
+        # return False
