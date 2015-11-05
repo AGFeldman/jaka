@@ -3,7 +3,7 @@ from __future__ import division
 import globals_
 
 from device import Device
-from packet import Packet
+from packet import AckPacket, DataPacket
 
 
 class Host(Device):
@@ -13,19 +13,18 @@ class Host(Device):
             return
 
         assert packet.dst == self.id_
-        if packet.ack:
+        if isinstance(packet, AckPacket):
             packet.flow.receive_ack(packet)
         else:
+            assert isinstance(packet, DataPacket)
             # Log reception for statistics
             packet.flow.log_packet_received()
             # Send an ack immediately
             # TODO(agf): Do we really want to send acks immediately?
-            ack = Packet(id_=packet.id_,
-                         src=self.id_,
-                         dst=packet.src,
-                         size=globals_.ACK_SIZE,
-                         ack=True,
-                         flow=packet.flow)
+            ack = AckPacket(id_=packet.id_,
+                            src=self.id_,
+                            dst=packet.src,
+                            flow=packet.flow)
             self.send_packet(ack)
 
     def send_packet(self, packet):

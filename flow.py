@@ -2,7 +2,7 @@ from __future__ import division
 
 import globals_
 
-from packet import Packet
+from packet import DataPacket, AckPacket
 
 
 class RTTE(float):
@@ -101,8 +101,8 @@ class Flow(object):
         globals_.event_manager.add(self.rtte.estimate, grow)
 
     def receive_ack(self, packet):
+        assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
-        assert packet.ack
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
         assert packet.id_ in self.packets_waiting_for_acks
         original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
@@ -112,7 +112,7 @@ class Flow(object):
         del self.packets_waiting_for_acks[packet.id_]
 
     def send_packet(self, packet):
-        assert not packet.ack
+        assert isinstance(packet, DataPacket)
         self.src_obj.send_packet(packet)
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
@@ -156,11 +156,9 @@ class Flow(object):
         if self.amount % globals_.DATA_PACKET_SIZE != 0:
             npackets += 1
         for id_ in xrange(npackets):
-            self.packets_to_send.append(Packet(id_=id_,
+            self.packets_to_send.append(DataPacket(id_=id_,
                                                src=self.src_obj.id_,
                                                dst=self.dst_obj.id_,
-                                               size=globals_.DATA_PACKET_SIZE,
-                                               ack=False,
                                                flow=self))
 
     def schedule_with_event_manager(self):
