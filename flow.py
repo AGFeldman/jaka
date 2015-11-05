@@ -75,7 +75,11 @@ class Flow(object):
         self.src_obj = src_obj
         self.dst_obj = dst_obj
 
+        # Round trip time estimate
+        self.rtte = RTTE()
+
         self.packets_to_send = []
+        # packets_waiting_for_acks is a map from packet_id -> (packet_obj, time_packet_was_sent)
         self.packets_waiting_for_acks = dict()
         self._generate_packets_to_send()
 
@@ -92,26 +96,30 @@ class Flow(object):
         # TODO(agf): Might need to loosen this requirement, since acks could
         # just be very late, and so a re-send might already have occured
         assert packet.id_ in self.packets_waiting_for_acks
-        original_packet = self.packets_waiting_for_acks[packet.id_]
+        original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
         assert packet.src == original_packet.dst and packet.dst == original_packet.src
+        rtt = globals_.event_manager.get_time() - time_sent
+        self.rtte.update_rtt_datapoint(rtt)
         del self.packets_waiting_for_acks[packet.id_]
 
     def send_packet(self, packet):
         assert not packet.ack
         self.src_obj.send_packet(packet)
-        self.packets_waiting_for_acks[packet.id_] = packet
+        self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has not received it'.format(
                             self.id_, packet.id_))
+                self.rtte.update_missed_ack()
                 self.packets_to_send.insert(0, packet)
             else:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
-        # TODO(agf): Change the wait time
-        globals_.event_manager.add(globals_.TIME_TO_WAIT_UNTIL_ACK, ack_is_due)
+        # Wait 3 times the round-trip-time-estimate
+        # TODO(agf): Re-examine wait time
+        globals_.event_manager.add(3 * self.rtte, ack_is_due)
 
     def start_sending(self):
         def send_packet_and_schedule_next_send():
