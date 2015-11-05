@@ -6,12 +6,17 @@ import globals_
 
 
 class LinkEndpoint(object):
-    def __init__(self, device=None, buffer_size=0):
+    def __init__(self, device=None, distant_device=None, buffer_size=0):
         '''
         buffer_size is in bits
         buffer_space_free is in bits
+        public members:
+            self.distant_device: This is Device object known to be at the other
+            end of the link. This is only intended to be used to allow devices
+            to know the ids and types of their neighbors.
         '''
         self.device = device
+        self.distant_device = distant_device
         self.buffer_size = buffer_size
         self.buffer_space_free = self.buffer_size
         # buffer elements should be (packet, time_packet_was_added)
@@ -59,8 +64,12 @@ class Link(object):
         self.rate = rate
         self.delay = delay
 
-        self.endpoint1 = LinkEndpoint(device=device1, buffer_size=buffer_size)
-        self.endpoint2 = LinkEndpoint(device=device2, buffer_size=buffer_size)
+        self.endpoint1 = LinkEndpoint(device=device1,
+                                      distant_device=device2,
+                                      buffer_size=buffer_size)
+        self.endpoint2 = LinkEndpoint(device=device2,
+                                      distant_device=device1,
+                                      buffer_size=buffer_size)
         device1.plug_in_link(self.endpoint1)
         device2.plug_in_link(self.endpoint2)
 

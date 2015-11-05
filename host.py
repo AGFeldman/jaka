@@ -1,5 +1,3 @@
-from __future__ import division
-
 import globals_
 
 from device import Device
@@ -7,11 +5,15 @@ from packet import AckPacket, DataPacket
 
 
 class Host(Device):
-    def receive_packet(self, packet):
-        # TODO(agf): This line is temporary. Remove it when we support routing tables.
-        if packet.dst != self.id_:
-            return
+    def __init__(self, id_):
+        Device.__init__(self, id_)
+        self.endpoint_for_router = None
 
+    def plug_in_link(self, link_endpoint):
+        assert self.endpoint_for_router is None
+        self.endpoint_for_router = link_endpoint
+
+    def receive_packet(self, packet):
         assert packet.dst == self.id_
         if isinstance(packet, AckPacket):
             packet.flow.receive_ack(packet)
@@ -28,7 +30,8 @@ class Host(Device):
             self.send_packet(ack)
 
     def send_packet(self, packet):
-        self.get_endpoint_for_outgoing_packet(packet).receive_from_device(packet)
+        assert self.endpoint_for_router is not None
+        self.endpoint_for_router.receive_from_device(packet)
 
     def act(self):
         return False
