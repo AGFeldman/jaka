@@ -35,30 +35,6 @@ class RTTE(float):
         # We no longer need to perform updates when acks are missed
         self.update_missed_ack = self.no_op
 
-    def __add__(self, x):
-        return self.estimate + x
-
-    def __radd__(self, x):
-        return x + self.estimate
-
-    def __sub__(self, x):
-        return self.estimate - x
-
-    def __rsub__(self, x):
-        return x - self.estimate
-
-    def __mul__(self, x):
-        return self.estimate * x
-
-    def __rmul__(self, x):
-        return x * self.estimate
-
-    def __truediv__(self, x):
-        return self.estimate / x
-
-    def __rtruediv__(self, x):
-        return x / self.estimate
-
 
 class Flow(object):
     def __init__(self, id_=None, start=None, amount=None, src_obj=None, dst_obj=None):
@@ -68,6 +44,9 @@ class Flow(object):
         amount is the amount of data to send, in bits
         src_obj is the Host object for the source
         dst_obj is the Host object for the destination
+
+        public members:
+            self.finished: Indicates whether the flow has finished transmitting all packets
         '''
         self.id_ = id_
         self.start = start
@@ -75,19 +54,40 @@ class Flow(object):
         self.src_obj = src_obj
         self.dst_obj = dst_obj
 
+        self.init_window_size()
+
         # Round trip time estimate
         self.rtte = RTTE()
 
         self.packets_to_send = []
         # packets_waiting_for_acks is a map from packet_id -> (packet_obj, time_packet_was_sent)
         self.packets_waiting_for_acks = dict()
-        self._generate_packets_to_send()
 
         # Used for statistics
         # TODO(agf): This is likely to be a very long list (and we even know
         # what the length will be!), so performance might be improved
         # significantly by making this an array or something
         self.times_packets_were_received = []
+
+        self.finished = False
+
+    def init_window_size(self):
+        self.window_size = 1
+
+    def update_window_size_missed_ack(self):
+        self.window_size = (self.window_size // 2) + (self.window_size % 2)
+        assert self.window_size >= 1
+
+    def start_growing_window_size(self):
+        # Window size grows by 1 every round-trip-time estimate
+        # TODO(agf): If round-trip-time estimate drops sharply, window size
+        # still won't increase until it was last scheduled to increase
+        def grow():
+            self.window_size += 1
+            globals_.event_manager.log('{} window size is now {}'.format(
+                self.id_, self.window_size))
+            globals_.event_manager.add(self.rtte.estimate, grow)
+        globals_.event_manager.add(self.rtte.estimate, grow)
 
     def receive_ack(self, packet):
         assert packet.dst == self.src_obj.id_
@@ -102,37 +102,45 @@ class Flow(object):
         self.rtte.update_rtt_datapoint(rtt)
         del self.packets_waiting_for_acks[packet.id_]
 
+    # When the ack is due, we can remove it from the list of packets waiting
+    # for acks and adjust the windows size, as appropriate
+
     def send_packet(self, packet):
         assert not packet.ack
         self.src_obj.send_packet(packet)
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
+            # When the ack is due, we can remove it from
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has not received it'.format(
                             self.id_, packet.id_))
                 self.rtte.update_missed_ack()
                 self.packets_to_send.insert(0, packet)
+                # Remove from list of packets waiting for acks
+                # This might be necessary to enable more sends, since sends can
+                # only occur when #waiting_for_acks < window_size
+                del self.packets_waiting_for_acks[packet.id_]
+                self.update_window_size_missed_ack()
             else:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
         # Wait 3 times the round-trip-time-estimate
-        # TODO(agf): Re-examine wait time
-        globals_.event_manager.add(3 * self.rtte, ack_is_due)
+        globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
 
-    def start_sending(self):
-        def send_packet_and_schedule_next_send():
-            if not self.packets_to_send:
-                return
+    def act(self):
+        if not self.packets_to_send:
+            if not self.packets_waiting_for_acks and globals_.event_manager.get_time() > self.start:
+                self.finished = True
+            return False
+        n_waiting_for_acks = len(self.packets_waiting_for_acks)
+        if n_waiting_for_acks >= self.window_size:
+            return False
+        for _ in xrange(self.window_size - n_waiting_for_acks):
             packet = self.packets_to_send.pop(0)
             self.send_packet(packet)
             globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
-            globals_.event_manager.add(
-                    # TODO(agf): This time between sends should vary. Actually,
-                    # it should depend on window size.
-                    globals_.TIME_BETWEEN_SENDS, send_packet_and_schedule_next_send)
-        globals_.event_manager.add(0, send_packet_and_schedule_next_send)
         return True
 
     def _generate_packets_to_send(self):
@@ -152,7 +160,8 @@ class Flow(object):
 
     def schedule_with_event_manager(self):
         def setup():
-            self.start_sending()
+            self._generate_packets_to_send()
+            self.start_growing_window_size()
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):

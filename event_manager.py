@@ -34,22 +34,29 @@ class EventManager(object):
         print 'Time', self.get_time(), ':', msg
 
     def register_network(self, network):
-        actors = network.get_actors()
-        flows = network.get_flows()
-        self.set_actors(actors)
-        for flow in flows:
+        self.set_actors(network.get_actors())
+        self.set_flows(network.get_flows())
+        for flow in self.flows:
             flow.schedule_with_event_manager()
 
     def set_actors(self, actors):
         self.actors = actors
 
+    def set_flows(self, flows):
+        self.flows = flows
+
     def get_time(self):
         return self.time
 
-    def add(self, time_until_action, action,):
-        assert(time_until_action >= 0)
+    def add(self, time_until_action, action):
+        assert time_until_action >= 0
         self.queue.append((self.get_time() + time_until_action, action))
         self.queue.sort()
+
+    def add_eternal(self, time_until_action, action):
+        assert time_until_action >= 0
+        self.eternal_queue.append((self.get_time() + time_until_action, action))
+        self.eternal_queue.sort()
 
     def run(self):
         while self.queue:
@@ -66,3 +73,6 @@ class EventManager(object):
                 for actor in self.actors:
                     if actor.act():
                         keep_acting = True
+
+            if all((flow.finished for flow in self.flows)):
+                break
