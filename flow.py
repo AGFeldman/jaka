@@ -40,7 +40,7 @@ class Flow(object):
     def __init__(self, id_=None, start=None, amount=None, src_obj=None, dst_obj=None):
         '''
         id_ is e.g. "F1"
-        start is the time that te flow should start, in seconds
+        start is the time that the flow should start, in seconds
         amount is the amount of data to send, in bits
         src_obj is the Host object for the source
         dst_obj is the Host object for the destination
@@ -93,8 +93,6 @@ class Flow(object):
         assert packet.dst == self.src_obj.id_
         assert packet.ack
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
-        # TODO(agf): Might need to loosen this requirement, since acks could
-        # just be very late, and so a re-send might already have occured
         assert packet.id_ in self.packets_waiting_for_acks
         original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
         assert packet.src == original_packet.dst and packet.dst == original_packet.src
@@ -102,15 +100,11 @@ class Flow(object):
         self.rtte.update_rtt_datapoint(rtt)
         del self.packets_waiting_for_acks[packet.id_]
 
-    # When the ack is due, we can remove it from the list of packets waiting
-    # for acks and adjust the windows size, as appropriate
-
     def send_packet(self, packet):
         assert not packet.ack
         self.src_obj.send_packet(packet)
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
-            # When the ack is due, we can remove it from
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has not received it'.format(
@@ -143,7 +137,7 @@ class Flow(object):
             globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
         return True
 
-    def _generate_packets_to_send(self):
+    def generate_packets_to_send(self):
         '''
         Fill self.packets with the packets that we want to send
         '''
@@ -160,7 +154,7 @@ class Flow(object):
 
     def schedule_with_event_manager(self):
         def setup():
-            self._generate_packets_to_send()
+            self.generate_packets_to_send()
             self.start_growing_window_size()
         globals_.event_manager.add(self.start, setup)
 

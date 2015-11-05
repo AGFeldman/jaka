@@ -53,11 +53,6 @@ class EventManager(object):
         self.queue.append((self.get_time() + time_until_action, action))
         self.queue.sort()
 
-    def add_eternal(self, time_until_action, action):
-        assert time_until_action >= 0
-        self.eternal_queue.append((self.get_time() + time_until_action, action))
-        self.eternal_queue.sort()
-
     def run(self):
         while self.queue:
             self.time, scheduled_action = self.queue.pop(0)
