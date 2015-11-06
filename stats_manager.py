@@ -1,5 +1,7 @@
 import globals_
 
+import os
+
 from graph import Graph
 
 
@@ -43,6 +45,8 @@ class StatsManager(object):
         Outputs all of the graphs from the generated
         data
         '''
+        if not os.path.exists("output"):
+            os.makedirs("output")
         for tag, graph in self.graphs.iteritems():
             # TODO(keegan): Save as file name specific to case
             # and with more descriptive file name
