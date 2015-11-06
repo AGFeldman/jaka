@@ -6,6 +6,8 @@ Or, if you want to be fancy:
 
 `time python -m cProfile -s time run.py cases/case0.json > out`
 
+Plots are saved as png files under the "output" directory.
+
 Conventions
 
 If a module involves any division, use `from __future__ import division`
