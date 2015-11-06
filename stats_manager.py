@@ -26,13 +26,14 @@ class StatsManager(object):
         self.graphs = dict()
         self.tag_count = 0;
 
-    def new_graph(self):
+    def new_graph(self, **kwargs):
         '''
         Creates a new receiver within the StatsManager.
         Returns a tag which will be used to identify
         Datum objects with the receiver.
         '''
-        g = Graph()
+        print kwargs
+        g = Graph(**kwargs)
         tag = self.tag_count
         # Ensure tags are unique
         self.tag_count += 1

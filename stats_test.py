@@ -14,7 +14,10 @@ def main_setup():
 if __name__ == '__main__':
     global val
     main_setup()
-    tag = globals_.stats_manager.new_graph()
+    tag = globals_.stats_manager.new_graph(
+        title='Random walk',
+        ylabel='Walk value'
+    )
     # hack to allow modifying outer variable
     # from within a closure
     val = [10]

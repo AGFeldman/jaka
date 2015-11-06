@@ -4,12 +4,21 @@ class Graph(object):
     '''
     Stores all the information about a graph.
     '''
-    def __init__(self):
+    def __init__(self, title=None, ylabel=None):
+        self.title=title
+        self.ylabel=ylabel
         self.times = []
         self.values = []
 
     def draw(self):
-        plt.plot(self.times, self.values)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        if self.title:
+            ax.set_title(self.title)
+        if self.ylabel:
+            ax.set_ylabel(self.ylabel)
+        ax.set_xlabel("Time (s)")
+        ax.plot(self.times, self.values)
         plt.show()
 
     def append(self, time, value):
