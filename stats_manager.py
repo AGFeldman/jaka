@@ -38,10 +38,13 @@ class StatsManager(object):
         time = globals_.event_manager.get_time()
         self.graphs[tag].append(time, value)
 
-    def output_graphs (self):
+    def output_graphs (self, display=False):
         '''
         Outputs all of the graphs from the generated
         data
         '''
-        for graph in self.graphs.values():
-            graph.draw()
+        for tag, graph in self.graphs.iteritems():
+            # TODO(keegan): Save as file name specific to case
+            # and with more descriptive file name
+            graph.draw(display=display,
+                       filename="output/out_{}.png".format(tag))

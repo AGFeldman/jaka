@@ -10,7 +10,7 @@ class Graph(object):
         self.times = []
         self.values = []
 
-    def draw(self):
+    def draw(self, filename=None, display=False):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         if self.title:
@@ -19,7 +19,11 @@ class Graph(object):
             ax.set_ylabel(self.ylabel)
         ax.set_xlabel("Time (s)")
         ax.plot(self.times, self.values)
-        plt.show()
+        if filename:
+            fig.savefig(filename)
+        if display:
+            plt.show()
+        plt.close(fig)
 
     def append(self, time, value):
         self.times.append(time)
