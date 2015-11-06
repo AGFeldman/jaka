@@ -67,6 +67,10 @@ class Flow(object):
         # TODO(agf): This is likely to be a very long list (and we even know
         # what the length will be!), so performance might be improved
         # significantly by making this an array or something
+        self.window_size_graph_tag = globals_.stats_manager.new_graph(
+            title='Window Size for Flow %s' % self.id_,
+            ylabel='Window size'
+        )
         self.times_packets_were_received = []
 
         self.finished = False
@@ -75,15 +79,20 @@ class Flow(object):
         self.window_size = 1
 
     def update_window_size_missed_ack(self):
-        self.window_size = (self.window_size // 2) + (self.window_size % 2)
-        assert self.window_size >= 1
+        new_size = (self.window_size // 2) + (self.window_size % 2)
+        assert new_size >= 1
+        self.set_window_size(new_size)
+
+    def set_window_size(self, size):
+        self.window_size = size
+        globals_.stats_manager.notify(self.window_size_graph_tag, size)
 
     def start_growing_window_size(self):
         # Window size grows by 1 every round-trip-time estimate
         # TODO(agf): If round-trip-time estimate drops sharply, window size
         # still won't increase until it was last scheduled to increase
         def grow():
-            self.window_size += 1
+            self.set_window_size(self.window_size + 1)
             globals_.event_manager.log('{} window size is now {}'.format(
                 self.id_, self.window_size))
             globals_.event_manager.add(self.rtte.estimate, grow)

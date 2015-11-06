@@ -2,17 +2,6 @@ import globals_
 
 from graph import Graph
 
-class Datum(object):
-    '''
-    The datum object has two values:
-       tag - The unique graph identifier returned
-             by StatsManager.new_graph
-       value - The value of the statistic being logged.
-    '''
-
-    def __init__(self, tag, value):
-        self.tag = tag
-        self.value = value
 
 class StatsManager(object):
     '''
@@ -40,14 +29,14 @@ class StatsManager(object):
         self.graphs[tag] = g
         return tag
 
-    def notify (self, datum):
+    def notify (self, tag, value):
         '''
-        Receives a datum from another object.
-        Associates the value with the graph
-        specified by the tag.
+        Receives a tag and value from another object.
+        Associates the value with the graph specified
+        by the tag.
         '''
         time = globals_.event_manager.get_time()
-        self.graphs[datum.tag].append(time, datum.value)
+        self.graphs[tag].append(time, value)
 
     def output_graphs (self):
         '''

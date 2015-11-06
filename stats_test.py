@@ -26,7 +26,7 @@ if __name__ == '__main__':
         '''
         Adds data to the graph at random time intervals
         '''
-        globals_.stats_manager.notify(Datum(tag, val[0]))
+        globals_.stats_manager.notify(tag, val[0])
         val[0] += random.randint(-1,1)
         time = globals_.event_manager.get_time()
         if time < 100:
