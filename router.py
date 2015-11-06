@@ -45,13 +45,9 @@ class Router(Device):
         self.routing_table[packet.dst][0].receive_from_device(packet)
 
     def receive_packet(self, packet):
-        globals_.event_manager.log('{} received some packet')
-
         if not isinstance(packet, RoutingPacket):
             self.send_packet(packet)
             return
-
-        globals_.event_manager.log('{} received routing packet {}'.format(self, packet))
 
         # Handle routing packets
         # In order to converge eventually, it is sufficient to:
@@ -94,7 +90,6 @@ class Router(Device):
         # buffers? (Can we think of the buffers as "inside" the routers?) (No)
 
     def send_routing_packets(self):
-        globals_.event_manager.log('{} call to send_routing_packets'.format(self))
         distances = []
         for host_id in self.provisional_routing_table:
             _, dist = self.provisional_routing_table[host_id]
@@ -128,7 +123,6 @@ class Router(Device):
         globals_.event_manager.add(0.4, beat)
 
     def register_with_event_manager(self):
-        print 'i register'
         self.initialize_routing_packets_beat()
         self.initialize_routing_tables_beat()
 
