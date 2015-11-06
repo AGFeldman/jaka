@@ -4,6 +4,7 @@ import sys
 import globals_
 
 from event_manager import EventManager
+from stats_manager import StatsManager
 from file_parser import FileParser
 
 
@@ -27,6 +28,7 @@ def main_setup():
     '''
     random.seed(0)
     globals_.event_manager = EventManager()
+    globals_.stats_manager = StatsManager()
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
