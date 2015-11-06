@@ -36,10 +36,16 @@ class AckPacket(Packet):
 
 
 class RoutingPacket(Packet):
-    def __init__(self, id_=None, src=None, dst=None, flow=None, distances=None):
+    def __init__(self, src=None, distances=None):
         '''
-        distances is a dictionary that maps dst_id -> distance_estimate
+        distances is a list of (destination_id, estimated_distance_to_destination) tuples
         '''
-        Packet.__init__(self, id_=id_, src=src, dst=dst, flow=flow, size=globals_.DATA_PACKET_SIZE)
+        assert src is not None
         assert distances is not None
+        self.id_ = 'TODO(agf): Routing packets don\'t have ids'
+        self.src = src
         self.distances = distances
+        self.size = globals_.DATA_PACKET_SIZE
+
+    def __str__(self):
+        return '(routing packet from {})'.format(self.id_)

@@ -157,11 +157,11 @@ class Flow(object):
             npackets += 1
         for id_ in xrange(npackets):
             self.packets_to_send.append(DataPacket(id_=id_,
-                                               src=self.src_obj.id_,
-                                               dst=self.dst_obj.id_,
-                                               flow=self))
+                                                   src=self.src_obj.id_,
+                                                   dst=self.dst_obj.id_,
+                                                   flow=self))
 
-    def schedule_with_event_manager(self):
+    def register_with_event_manager(self):
         def setup():
             self.generate_packets_to_send()
             self.start_growing_window_size()

@@ -50,6 +50,14 @@ class LinkEndpoint(object):
         self.buffer_space_free += packet.size
         return packet
 
+    def get_cost(self):
+        '''
+        This could be many different things, such as queue length, average
+        queueing delay, or transmission+propagation time
+        For now, it is a constant. ("The cost is one hop.")
+        '''
+        return 1
+
 
 class Link(object):
     def __init__(self, id_=None, device1=None, device2=None, rate=0, delay=0, buffer_size=0):
