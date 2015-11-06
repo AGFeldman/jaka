@@ -59,8 +59,8 @@ class Network(object):
 
     def get_actors(self):
         # Returns a list of all actors in the network.
-        # This includes Hosts, Routers, and Links
-        return self.devices.values() + self.links.values()
+        # This includes Hosts, Routers, Links, and Flows
+        return self.devices.values() + self.links.values() + self.get_flows()
 
     def get_flows(self):
         # Returns a list of the flows.
