@@ -3,7 +3,7 @@ import random
 import globals_
 
 from event_manager import EventManager
-from stats_manager import StatsManager, Datum
+from stats_manager import StatsManager
 
 
 def main_setup():
@@ -33,4 +33,4 @@ if __name__ == '__main__':
             globals_.event_manager.add(time_step, gen_data)
     globals_.event_manager.add(0, gen_data)
     globals_.event_manager.run()
-    globals_.stats_manager.output_graphs()
+    globals_.stats_manager.output_graphs(display=True)
