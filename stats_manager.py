@@ -47,3 +47,11 @@ class StatsManager(object):
         '''
         time = globals_.event_manager.get_time()
         self.graphs[datum.tag].append(time, datum.value)
+
+    def output_graphs (self):
+        '''
+        Outputs all of the graphs from the generated
+        data
+        '''
+        for graph in self.graphs.values():
+            graph.draw()

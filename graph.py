@@ -1,12 +1,17 @@
+import matplotlib.pyplot as plt
+
 class Graph(object):
     '''
     Stores all the information about a graph.
     '''
     def __init__(self):
-        pass
+        self.times = []
+        self.values = []
 
     def draw(self):
-        pass
+        plt.plot(self.times, self.values)
+        plt.show()
 
     def append(self, time, value):
-        pass
+        self.times.append(time)
+        self.values.append(value)
