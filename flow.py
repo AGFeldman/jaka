@@ -103,8 +103,11 @@ class Flow(object):
     def receive_ack(self, packet):
         assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
+        if packet.id_ not in self.packets_waiting_for_acks:
+            # This could happen if the ack comes too late
+            globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
+            return
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
-        assert packet.id_ in self.packets_waiting_for_acks
         original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
         assert packet.src == original_packet.dst and packet.dst == original_packet.src
         rtt = globals_.event_manager.get_time() - time_sent
@@ -142,7 +145,7 @@ class Flow(object):
         n_waiting_for_acks = len(self.packets_waiting_for_acks)
         if n_waiting_for_acks >= self.window_size:
             return False
-        for _ in xrange(self.window_size - n_waiting_for_acks):
+        for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
             packet = self.packets_to_send.pop(0)
             self.send_packet(packet)
             globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
