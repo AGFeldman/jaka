@@ -13,6 +13,7 @@ class EventManager(object):
     '''
 
     def __init__(self, actors=None):
+        self.flows = dict()
         self.actors = []
         if actors:
             self.actors = actors

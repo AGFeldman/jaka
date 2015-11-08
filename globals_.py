@@ -1,4 +1,5 @@
 event_manager = None
+stats_manager = None
 
 ACK_SIZE = 64 * 8  # 64 bytes
 DATA_PACKET_SIZE = 1024 * 8  # 1024 bytes
