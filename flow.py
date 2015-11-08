@@ -64,13 +64,15 @@ class Flow(object):
         self.packets_waiting_for_acks = dict()
 
         # For statistics
-        self.window_size_graph_tag = globals_.stats_manager.new_graph(
-            title='Window Size for Flow %s' % self.id_,
-            ylabel='Window size'
-        )
+        if globals_.stats_manager:
+            self.window_size_graph_tag = globals_.stats_manager.new_graph(
+                title='Window Size for Flow %s' % self.id_,
+                ylabel='Window size'
+            )
         # TODO(agf): This is likely to be a very long list (and we even know
         # what the length will be!), so performance might be improved
         # significantly by making this an array or something
+        # TODO(agf): This can probably be removed or changed to use stats_manager
         self.times_packets_were_received = []
 
         self.finished = False
