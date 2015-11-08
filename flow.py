@@ -63,14 +63,14 @@ class Flow(object):
         # packets_waiting_for_acks is a map from packet_id -> (packet_obj, time_packet_was_sent)
         self.packets_waiting_for_acks = dict()
 
-        # Used for statistics
-        # TODO(agf): This is likely to be a very long list (and we even know
-        # what the length will be!), so performance might be improved
-        # significantly by making this an array or something
+        # For statistics
         self.window_size_graph_tag = globals_.stats_manager.new_graph(
             title='Window Size for Flow %s' % self.id_,
             ylabel='Window size'
         )
+        # TODO(agf): This is likely to be a very long list (and we even know
+        # what the length will be!), so performance might be improved
+        # significantly by making this an array or something
         self.times_packets_were_received = []
 
         self.finished = False
