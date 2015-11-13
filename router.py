@@ -23,8 +23,8 @@ class Router(Device):
 
     def plug_in_link(self, link_endpoint):
         if isinstance(link_endpoint.distant_device, Host):
-            self.routing_table[link_endpoint.distant_device.id_] = (link_endpoint,
-                                                                    link_endpoint.get_cost())
+            self.routing_table[link_endpoint.distant_device.id_] = (
+                    link_endpoint, link_endpoint.get_default_cost())
             # Shallow copy
             self.provisional_routing_table = copy.copy(self.routing_table)
             self.endpoints_to_hosts.append(link_endpoint)

@@ -35,9 +35,15 @@ class LinkEndpoint(object):
                     ylabel='Buffer Occupancy (bits)')
         self.num_packets_dropped = 0
 
+    def get_buffer_occupancy(self):
+        return self.buffer_size - self.buffer_space_free
+
+    def get_buffer_occupancy_percentage(self):
+        return self.get_buffer_occupancy() / self.buffer_size
+
     def notify_buffer_occupancy(self):
         globals_.stats_manager.notify(self.buffer_occupancy_graph_tag,
-                                      self.buffer_size - self.buffer_space_free)
+                                      self.get_buffer_occupancy())
 
     def receive_from_device(self, packet):
         # TODO(agf): Add fields 'stats_packets_received' and 'stats_packets_dropped'
@@ -71,13 +77,19 @@ class LinkEndpoint(object):
         self.notify_buffer_occupancy()
         return packet
 
+    def get_default_cost(self):
+        return self.link.get_default_cost()
+
     def get_cost(self):
         '''
         This could be many different things, such as queue length, average
         queueing delay, or transmission+propagation time
-        For now, it is a constant. ("The cost is one hop.")
+        Or it could be constant ("one link is one hop")
         '''
-        return 1
+        return self.link.get_cost()
+
+    def reset_cost(self):
+        self.link.reset_cost()
 
 
 class Link(object):
@@ -124,6 +136,9 @@ class Link(object):
         self.waiting_to_decide_direction = True
         self.src_dst_endpoints = None
 
+        self.cost_measurements = []
+        self.reset_cost()
+
     def get_src_dst_endpoints(self):
         '''
         Used to determine what direction a packet should travel if we're
@@ -164,6 +179,40 @@ class Link(object):
             globals_.event_manager.add(self.delay, packet_reaches_endpoint)
         time_transmission_finishes = self.packet_transmitting.size / self.rate
         globals_.event_manager.add(time_transmission_finishes, packet_finishes_transmitting)
+
+    def get_default_cost(self):
+        return 0.5
+
+    def get_cost(self):
+        '''
+        A cost measurement is taken.
+        Cost measurement is the average of the buffer occupancy percentages.
+        Returns cost, which is based on cost measurements.
+        '''
+        cost_measurement = (self.endpoint1.get_buffer_occupancy_percentage() +
+                            self.endpoint2.get_buffer_occupancy_percentage()) / 2
+        self.cost_measurements.append((globals_.event_manager.get_time(), cost_measurement))
+        return self.get_cost_from_measurements()
+
+    def get_cost_from_measurements(self):
+        '''
+        Cost is the average of the cost measurements, with each measurment
+        weighted by the time since the previous measurement.
+        '''
+        reset_time = self.cost_measurements[0][0]
+        prev_time = reset_time
+        weighted_measurement_sum = 0
+        for time, measurement in self.cost_measurements:
+            weighted_measurement_sum += (time - prev_time) * measurement
+            prev_time = time
+        return weighted_measurement_sum / (time - reset_time)
+
+    def reset_cost(self):
+        '''
+        This should be called when routers reset reset their routing tables.
+        Resets cost measurements.
+        '''
+        self.cost_measurements = [(globals_.event_manager.get_time(), 0)]
 
     def act(self):
         if self.waiting_prop_time or self.packet_transmitting:
