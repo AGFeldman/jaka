@@ -84,10 +84,6 @@ class Router(Device):
 
         if updated_table:
             self.send_routing_packets()
-        # TODO(agf): What if routing packets get dropped?
-        # Should we get acks for routing packets?
-        # Can routers do anything to make sure that they don't overflow the
-        # buffers? (Can we think of the buffers as "inside" the routers?) (No)
 
     def send_routing_packets(self):
         distances = []
