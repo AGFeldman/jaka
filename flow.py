@@ -73,6 +73,11 @@ class Flow(object):
                 title='Number of Data Packets received for Flow %s' % self.id_,
                 ylabel='Number of data packets received'
             )
+            self.rate_packets_received_graph_tag = globals_.stats_manager.new_graph(
+                title='Rate of Data Packets received for flow %s' % self.id_,
+                ylabel='Rate (packets / second)',
+                is_rate=True
+            )
             self.rt_packet_delay_graph_tag = globals_.stats_manager.new_graph(
                 title='Round Trip Packet Delay for Flow %s' % self.id_,
                 ylabel='Delay (seconds'
@@ -179,4 +184,6 @@ class Flow(object):
     def log_packet_received(self):
         self.num_packets_received += 1
         globals_.stats_manager.notify(self.num_packets_received_graph_tag,
+                                      self.num_packets_received)
+        globals_.stats_manager.notify(self.rate_packets_received_graph_tag,
                                       self.num_packets_received)

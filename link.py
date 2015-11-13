@@ -93,6 +93,18 @@ class Link(object):
         self.rate = rate
         self.delay = delay
 
+        if globals_.stats_manager:
+            self.data_sent_graph_tag = globals_.stats_manager.new_graph(
+                    title='Total Bits Sent Over {}'.format(self.id_),
+                    ylabel='Bits'
+            )
+            self.rate_data_sent_graph_tag = globals_.stats_manager.new_graph(
+                    title='Rate of Sending Data Over {}'.format(self.id_),
+                    ylabel='Rate (bits/second)',
+                    is_rate=True
+            )
+        self.total_data_sent = 0
+
         self.endpoint1 = LinkEndpoint(device=device1,
                                       distant_device=device2,
                                       buffer_size=buffer_size,
@@ -146,6 +158,9 @@ class Link(object):
                         '{} delivered {} to the endpoint associated with {}'.format(
                             self.id_, packet, dst_endpoint.device.id_))
                 dst_endpoint.device.receive_packet(packet)
+                self.total_data_sent += packet.size
+                globals_.stats_manager.notify(self.data_sent_graph_tag, self.total_data_sent)
+                globals_.stats_manager.notify(self.rate_data_sent_graph_tag, self.total_data_sent)
             globals_.event_manager.add(self.delay, packet_reaches_endpoint)
         time_transmission_finishes = self.packet_transmitting.size / self.rate
         globals_.event_manager.add(time_transmission_finishes, packet_finishes_transmitting)
