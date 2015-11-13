@@ -19,7 +19,7 @@ class Graph(object):
             ax.set_title(self.title)
         if self.ylabel:
             ax.set_ylabel(self.ylabel)
-        ax.set_xlabel("Time (s)")
+        ax.set_xlabel('Time (s)')
         ax.plot(self.times, self.values)
 
     def append(self, time, value):

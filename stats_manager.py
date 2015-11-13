@@ -12,10 +12,10 @@ class StatsManager(object):
     Datum object as argument.
     '''
 
-    def __init__(self):
+    def __init__(self, output_name):
         self.graphs = dict()
         self.tag_count = 0
-        self.pdfpages = PdfPages('todoagf_output.pdf')  # TODO(agf)
+        self.pdfpages = PdfPages(output_name + '.pdf')
 
     def new_graph(self, **kwargs):
         '''
@@ -23,7 +23,6 @@ class StatsManager(object):
         Returns a tag which will be used to identify
         Datum objects with the receiver.
         '''
-        print kwargs
         g = Graph(**kwargs)
         tag = self.tag_count
         # Ensure tags are unique
