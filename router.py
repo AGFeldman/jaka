@@ -114,6 +114,8 @@ class Router(Device):
     def initialize_routing_tables_beat(self):
         def beat():
             self.routing_table = copy.copy(self.provisional_routing_table)
+            for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
+                endpoint.reset_cost()
             globals_.event_manager.add(5, beat)
         # TODO(agf): Think about when we want to set up this beat
         globals_.event_manager.add(0.4, beat)
