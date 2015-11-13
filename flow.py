@@ -73,6 +73,10 @@ class Flow(object):
                 title='Number of Data Packets received for Flow %s' % self.id_,
                 ylabel='Number of data packets received'
             )
+            self.rt_packet_delay_graph_tag = globals_.stats_manager.new_graph(
+                title='Round Trip Packet Delay for Flow %s' % self.id_,
+                ylabel='Delay (seconds'
+            )
         # Number of data packets that have been successfully received at destination
         self.num_packets_received = 0
 
@@ -114,6 +118,7 @@ class Flow(object):
         rtt = globals_.event_manager.get_time() - time_sent
         self.rtte.update_rtt_datapoint(rtt)
         del self.packets_waiting_for_acks[packet.id_]
+        globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
     def send_packet(self, packet):
         assert isinstance(packet, DataPacket)
