@@ -1,11 +1,23 @@
 from device import Device
 from packet import AckPacket, DataPacket
+import globals_
 
 
 class Host(Device):
     def __init__(self, id_):
         Device.__init__(self, id_)
         self.endpoint_for_router = None
+        if globals_.stats_manager:
+            self.bits_sent_graph_tag = globals_.stats_manager.new_graph(
+                    title='Total Bits Sent by %s' % self.id_,
+                    ylabel='Total Bits'
+            )
+            self.bits_received_graph_tag = globals_.stats_manager.new_graph(
+                    title='Total Bits Received by %s' % self.id_,
+                    ylabel='Total Bits'
+            )
+        self.bits_sent = 0
+        self.bits_received = 0
 
     def plug_in_link(self, link_endpoint):
         assert self.endpoint_for_router is None
@@ -13,6 +25,8 @@ class Host(Device):
 
     def receive_packet(self, packet):
         assert packet.dst == self.id_
+        self.bits_received += packet.size
+        globals_.stats_manager.notify(self.bits_received_graph_tag, self.bits_received)
         if isinstance(packet, AckPacket):
             packet.flow.receive_ack(packet)
         else:
@@ -29,6 +43,9 @@ class Host(Device):
 
     def send_packet(self, packet):
         assert self.endpoint_for_router is not None
+        assert isinstance(packet, DataPacket) or isinstance(packet, AckPacket)
+        self.bits_sent += packet.size
+        globals_.stats_manager.notify(self.bits_sent_graph_tag, self.bits_sent)
         self.endpoint_for_router.receive_from_device(packet)
 
     def act(self):
