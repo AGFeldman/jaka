@@ -1,6 +1,3 @@
-import random
-
-
 class Device(object):
     '''
     Hosts, Routers, and Switches are Devices

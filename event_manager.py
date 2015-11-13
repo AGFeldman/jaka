@@ -12,11 +12,15 @@ class EventManager(object):
     description) elements.
     '''
 
-    def __init__(self, actors=None):
+    def __init__(self, output_name):
         self.flows = dict()
         self.actors = []
-        if actors:
-            self.actors = actors
+
+        self.output_name = output_name + '.log'
+        # Clear the contents of the file self.output_name
+        with open(self.output_name, 'w') as f:
+            f.write('')
+
         # Note: If queue grows huge, performance will suffer because growing
         # python lists is slow
         self.queue = []
@@ -32,7 +36,8 @@ class EventManager(object):
         self.add(0, no_op)
 
     def log(self, msg):
-        print 'Time', self.get_time(), ':', msg
+        with open(self.output_name, 'a') as f:
+            f.write('Time {} : {}\n'.format(self.get_time(), msg))
 
     def register_network(self, network):
         self.actors = network.get_actors()

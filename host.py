@@ -1,5 +1,3 @@
-import globals_
-
 from device import Device
 from packet import AckPacket, DataPacket
 

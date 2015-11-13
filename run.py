@@ -17,7 +17,7 @@ def simulate(network):
     globals_.event_manager.run()
 
 
-def main_setup():
+def main_setup(output_name):
     '''
     This should be called at the beginning of main if you're running unit tests
     or simulations.
@@ -27,16 +27,21 @@ def main_setup():
     functions to make sense.
     '''
     random.seed(0)
-    globals_.event_manager = EventManager()
-    globals_.stats_manager = StatsManager()
+    globals_.event_manager = EventManager(output_name)
+    globals_.stats_manager = StatsManager(output_name)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print "Usage: %s test_file.json" % sys.argv[0]
+    if len(sys.argv) != 2 and len(sys.argv) != 3:
+        print 'Usage: %s test_file.json [output_name]' % sys.argv[0]
         sys.exit(-1)
 
-    main_setup()
+    test_case_name = sys.argv[1]
+    output_name = 'output'
+    if len(sys.argv) > 2:
+        output_name = sys.argv[2]
+
+    main_setup(output_name)
     file_parser = FileParser()
-    network = file_parser.create_network(sys.argv[1])
+    network = file_parser.create_network(test_case_name)
     simulate(network)
-    globals_.stats_manager.output_graphs(display=True)
+    globals_.stats_manager.output_graphs()

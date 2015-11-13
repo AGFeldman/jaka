@@ -4,9 +4,9 @@ Example usage:
 
 Or, if you want to be fancy:
 
-`time python -m cProfile -s time run.py cases/case0.json > out`
+`time python -m cProfile -s time run.py cases/case0.json case0`
 
-Plots are saved as png files under the "output" directory.
+Usage is `python run.py case_name.json [output_name]`. If `output_name` is not provided, then it defaults to `"output"`. Two files are generated: `output_name.log` and `output_name.pdf`. `output_name.pdf` has graphs of all the stats.
 
 Conventions
 
