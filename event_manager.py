@@ -35,16 +35,13 @@ class EventManager(object):
         print 'Time', self.get_time(), ':', msg
 
     def register_network(self, network):
-        self.set_actors(network.get_actors())
-        self.set_flows(network.get_flows())
-        for flow in self.flows:
-            flow.schedule_with_event_manager()
+        self.actors = network.get_actors()
+        for actor in self.actors:
+            # TODO(agf): Make this more tolerant of mis-spellings. Seriously.
+            if hasattr(actor, 'register_with_event_manager'):
+                actor.register_with_event_manager()
 
-    def set_actors(self, actors):
-        self.actors = actors
-
-    def set_flows(self, flows):
-        self.flows = flows
+        self.flows = network.get_flows()
 
     def get_time(self):
         return self.time
