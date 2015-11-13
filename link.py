@@ -6,7 +6,7 @@ import globals_
 
 
 class LinkEndpoint(object):
-    def __init__(self, device=None, distant_device=None, buffer_size=0):
+    def __init__(self, device=None, distant_device=None, buffer_size=0, link=None):
         '''
         buffer_size is in bits
         buffer_space_free is in bits
@@ -19,6 +19,7 @@ class LinkEndpoint(object):
         self.distant_device = distant_device
         self.buffer_size = buffer_size
         self.buffer_space_free = self.buffer_size
+        self.link = link
         # buffer elements should be (packet, time_packet_was_added)
         # buffer should always be sorted from least recently added to most recently added
         self.buffer = []
@@ -31,6 +32,7 @@ class LinkEndpoint(object):
         else:
             globals_.event_manager.log('endpoint associated with {} dropped {}'.format(
                 self.device.id_, packet))
+            self.link.log_dropped_packet()
 
     def peek_lra(self):
         '''
@@ -72,12 +74,21 @@ class Link(object):
         self.rate = rate
         self.delay = delay
 
+        if globals_.stats_manager:
+            self.packets_dropped_graph_tag = globals_.stats_manager.new_graph(
+                    title='Number of Packets Dropped on %s' % self.id_,
+                    ylabel='Number of Packets Dropped'
+                    )
+        self.num_packets_dropped = 0
+
         self.endpoint1 = LinkEndpoint(device=device1,
                                       distant_device=device2,
-                                      buffer_size=buffer_size)
+                                      buffer_size=buffer_size,
+                                      link=self)
         self.endpoint2 = LinkEndpoint(device=device2,
                                       distant_device=device1,
-                                      buffer_size=buffer_size)
+                                      buffer_size=buffer_size,
+                                      link=self)
         device1.plug_in_link(self.endpoint1)
         device2.plug_in_link(self.endpoint2)
 
@@ -88,6 +99,11 @@ class Link(object):
         self.waiting_prop_time = False
         self.waiting_to_decide_direction = True
         self.src_dst_endpoints = None
+
+    def log_dropped_packet(self):
+        self.num_packets_dropped += 1
+        globals_.stats_manager.notify(self.packets_dropped_graph_tag,
+                                      self.num_packets_dropped)
 
     def get_src_dst_endpoints(self):
         '''
