@@ -6,7 +6,7 @@ import globals_
 
 
 class LinkEndpoint(object):
-    def __init__(self, device=None, distant_device=None, buffer_size=0):
+    def __init__(self, device=None, distant_device=None, buffer_size=0, link=None):
         '''
         buffer_size is in bits
         buffer_space_free is in bits
@@ -19,18 +19,38 @@ class LinkEndpoint(object):
         self.distant_device = distant_device
         self.buffer_size = buffer_size
         self.buffer_space_free = self.buffer_size
+        self.link = link
         # buffer elements should be (packet, time_packet_was_added)
         # buffer should always be sorted from least recently added to most recently added
         self.buffer = []
+
+        if globals_.stats_manager:
+            self.packets_dropped_graph_tag = globals_.stats_manager.new_graph(
+                    title='Number of Packets Dropped on {}/{} endpoint'.format(
+                        self.link.id_, self.device.id_),
+                    ylabel='Number of Packets Dropped')
+            self.buffer_occupancy_graph_tag = globals_.stats_manager.new_graph(
+                    title='Buffer Occupancy for {}/{} endpoint'.format(
+                        self.link.id_, self.device.id_),
+                    ylabel='Buffer Occupancy (bits)')
+        self.num_packets_dropped = 0
+
+    def notify_buffer_occupancy(self):
+        globals_.stats_manager.notify(self.buffer_occupancy_graph_tag,
+                                      self.buffer_size - self.buffer_space_free)
 
     def receive_from_device(self, packet):
         # TODO(agf): Add fields 'stats_packets_received' and 'stats_packets_dropped'
         if self.buffer_space_free >= packet.size:
             self.buffer.append((packet, globals_.event_manager.get_time()))
             self.buffer_space_free -= packet.size
+            self.notify_buffer_occupancy()
         else:
             globals_.event_manager.log('endpoint associated with {} dropped {}'.format(
                 self.device.id_, packet))
+            self.num_packets_dropped += 1
+            globals_.stats_manager.notify(self.packets_dropped_graph_tag,
+                                          self.num_packets_dropped)
 
     def peek_lra(self):
         '''
@@ -48,6 +68,7 @@ class LinkEndpoint(object):
         '''
         packet = self.buffer.pop(0)[0]
         self.buffer_space_free += packet.size
+        self.notify_buffer_occupancy()
         return packet
 
     def get_cost(self):
@@ -74,10 +95,12 @@ class Link(object):
 
         self.endpoint1 = LinkEndpoint(device=device1,
                                       distant_device=device2,
-                                      buffer_size=buffer_size)
+                                      buffer_size=buffer_size,
+                                      link=self)
         self.endpoint2 = LinkEndpoint(device=device2,
                                       distant_device=device1,
-                                      buffer_size=buffer_size)
+                                      buffer_size=buffer_size,
+                                      link=self)
         device1.plug_in_link(self.endpoint1)
         device2.plug_in_link(self.endpoint2)
 
