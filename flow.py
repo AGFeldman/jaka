@@ -69,11 +69,12 @@ class Flow(object):
                 title='Window Size for Flow %s' % self.id_,
                 ylabel='Window size'
             )
-        # TODO(agf): This is likely to be a very long list (and we even know
-        # what the length will be!), so performance might be improved
-        # significantly by making this an array or something
-        # TODO(agf): This can probably be removed or changed to use stats_manager
-        self.times_packets_were_received = []
+            self.num_packets_received_graph_tag = globals_.stats_manager.new_graph(
+                title='Number of Data Packets received for Flow %s' % self.id_,
+                ylabel='Number of data packets received'
+            )
+        # Number of data packets that have been successfully received at destination
+        self.num_packets_received = 0
 
         self.finished = False
 
@@ -171,4 +172,6 @@ class Flow(object):
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
-        self.times_packets_were_received.append(globals_.event_manager.get_time())
+        self.num_packets_received += 1
+        globals_.stats_manager.notify(self.num_packets_received_graph_tag,
+                                      self.num_packets_received)
