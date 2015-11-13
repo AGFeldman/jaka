@@ -1,8 +1,7 @@
 import globals_
 
-import os
-
 from graph import Graph
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 class StatsManager(object):
@@ -15,7 +14,8 @@ class StatsManager(object):
 
     def __init__(self):
         self.graphs = dict()
-        self.tag_count = 0;
+        self.tag_count = 0
+        self.pdfpages = PdfPages('todoagf_output.pdf')  # TODO(agf)
 
     def new_graph(self, **kwargs):
         '''
@@ -31,7 +31,7 @@ class StatsManager(object):
         self.graphs[tag] = g
         return tag
 
-    def notify (self, tag, value):
+    def notify(self, tag, value):
         '''
         Receives a tag and value from another object.
         Associates the value with the graph specified
@@ -40,15 +40,12 @@ class StatsManager(object):
         time = globals_.event_manager.get_time()
         self.graphs[tag].append(time, value)
 
-    def output_graphs (self, display=False):
+    def output_graphs(self):
         '''
         Outputs all of the graphs from the generated
         data
         '''
-        if not os.path.exists("output"):
-            os.makedirs("output")
         for tag, graph in self.graphs.iteritems():
-            # TODO(keegan): Save as file name specific to case
-            # and with more descriptive file name
-            graph.draw(display=display,
-                       filename="output/out_{}.png".format(tag))
+            graph.draw()
+            self.pdfpages.savefig()
+        self.pdfpages.close()

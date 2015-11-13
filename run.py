@@ -39,4 +39,4 @@ if __name__ == '__main__':
     file_parser = FileParser()
     network = file_parser.create_network(sys.argv[1])
     simulate(network)
-    globals_.stats_manager.output_graphs(display=True)
+    globals_.stats_manager.output_graphs()
