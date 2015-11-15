@@ -35,6 +35,12 @@ class LinkEndpoint(object):
 
         self.num_packets_dropped = 0
 
+    def __str__(self):
+        return str(self.device) + '/' + str(self.link)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_buffer_occupancy(self):
         return self.buffer_size - self.buffer_space_free
 
@@ -137,6 +143,9 @@ class Link(object):
 
         self.cost_measurements = []
         self.reset_cost()
+
+    def __str__(self):
+        return self.id_
 
     def get_src_dst_endpoints(self):
         '''
