@@ -1,0 +1,5 @@
+language: python
+ptyhon:
+    - "2.7"
+
+script: bash test_all.sh
