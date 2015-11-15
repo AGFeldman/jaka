@@ -15,7 +15,8 @@ class StatsManager(object):
     def __init__(self, output_name):
         self.graphs = dict()
         self.tag_count = 0
-        self.pdfpages = PdfPages(output_name + '.pdf')
+        if output_name is not None:
+            self.pdfpages = PdfPages(output_name + '.pdf')
 
     def new_graph(self, **kwargs):
         '''

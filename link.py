@@ -24,15 +24,15 @@ class LinkEndpoint(object):
         # buffer should always be sorted from least recently added to most recently added
         self.buffer = []
 
-        if globals_.stats_manager:
-            self.packets_dropped_graph_tag = globals_.stats_manager.new_graph(
-                    title='Number of Packets Dropped on {}/{} endpoint'.format(
-                        self.link.id_, self.device.id_),
-                    ylabel='Number of Packets Dropped')
-            self.buffer_occupancy_graph_tag = globals_.stats_manager.new_graph(
-                    title='Buffer Occupancy for {}/{} endpoint'.format(
-                        self.link.id_, self.device.id_),
-                    ylabel='Buffer Occupancy (bits)')
+        self.packets_dropped_graph_tag = globals_.stats_manager.new_graph(
+                title='Number of Packets Dropped on {}/{} endpoint'.format(
+                    self.link.id_, self.device.id_),
+                ylabel='Number of Packets Dropped')
+        self.buffer_occupancy_graph_tag = globals_.stats_manager.new_graph(
+                title='Buffer Occupancy for {}/{} endpoint'.format(
+                    self.link.id_, self.device.id_),
+                ylabel='Buffer Occupancy (bits)')
+
         self.num_packets_dropped = 0
 
     def get_buffer_occupancy(self):
@@ -105,16 +105,15 @@ class Link(object):
         self.rate = rate
         self.delay = delay
 
-        if globals_.stats_manager:
-            self.data_sent_graph_tag = globals_.stats_manager.new_graph(
-                    title='Total Bits Sent Over {}'.format(self.id_),
-                    ylabel='Bits'
-            )
-            self.rate_data_sent_graph_tag = globals_.stats_manager.new_graph(
-                    title='Rate of Sending Data Over {}'.format(self.id_),
-                    ylabel='Rate (bits/second)',
-                    is_rate=True
-            )
+        self.data_sent_graph_tag = globals_.stats_manager.new_graph(
+                title='Total Bits Sent Over {}'.format(self.id_),
+                ylabel='Bits'
+        )
+        self.rate_data_sent_graph_tag = globals_.stats_manager.new_graph(
+                title='Rate of Sending Data Over {}'.format(self.id_),
+                ylabel='Rate (bits/second)',
+                is_rate=True
+        )
         self.total_data_sent = 0
 
         self.endpoint1 = LinkEndpoint(device=device1,
