@@ -13,13 +13,17 @@ class EventManager(object):
     '''
 
     def __init__(self, output_name):
+        '''
+        If |output_name| is None, then we should never call self.log()
+        '''
         self.flows = dict()
         self.actors = []
 
-        self.output_name = output_name + '.log'
-        # Clear the contents of the file self.output_name
-        with open(self.output_name, 'w') as f:
-            f.write('')
+        if output_name is not None:
+            self.output_name = output_name + '.log'
+            # Clear the contents of the file self.output_name
+            with open(self.output_name, 'w') as f:
+                f.write('')
 
         # Note: If queue grows huge, performance will suffer because growing
         # python lists is slow
@@ -36,6 +40,9 @@ class EventManager(object):
         self.add(0, no_op)
 
     def log(self, msg):
+        '''
+        Will break if constructor was called with output_name=None
+        '''
         with open(self.output_name, 'a') as f:
             f.write('Time {} : {}\n'.format(self.get_time(), msg))
 

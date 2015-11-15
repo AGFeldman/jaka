@@ -64,24 +64,24 @@ class Flow(object):
         self.packets_waiting_for_acks = dict()
 
         # For statistics
-        if globals_.stats_manager:
-            self.window_size_graph_tag = globals_.stats_manager.new_graph(
-                title='Window Size for Flow %s' % self.id_,
-                ylabel='Window size'
-            )
-            self.num_packets_received_graph_tag = globals_.stats_manager.new_graph(
-                title='Number of Data Packets received for Flow %s' % self.id_,
-                ylabel='Number of data packets received'
-            )
-            self.rate_packets_received_graph_tag = globals_.stats_manager.new_graph(
-                title='Rate of Data Packets received for flow %s' % self.id_,
-                ylabel='Rate (packets / second)',
-                is_rate=True
-            )
-            self.rt_packet_delay_graph_tag = globals_.stats_manager.new_graph(
-                title='Round Trip Packet Delay for Flow %s' % self.id_,
-                ylabel='Delay (seconds'
-            )
+        self.window_size_graph_tag = globals_.stats_manager.new_graph(
+            title='Window Size for Flow %s' % self.id_,
+            ylabel='Window size'
+        )
+        self.num_packets_received_graph_tag = globals_.stats_manager.new_graph(
+            title='Number of Data Packets received for Flow %s' % self.id_,
+            ylabel='Number of data packets received'
+        )
+        self.rate_packets_received_graph_tag = globals_.stats_manager.new_graph(
+            title='Rate of Data Packets received for flow %s' % self.id_,
+            ylabel='Rate (packets / second)',
+            is_rate=True
+        )
+        self.rt_packet_delay_graph_tag = globals_.stats_manager.new_graph(
+            title='Round Trip Packet Delay for Flow %s' % self.id_,
+            ylabel='Delay (seconds'
+        )
+
         # Number of data packets that have been successfully received at destination
         self.num_packets_received = 0
 
