@@ -8,7 +8,7 @@ if __name__ == '__main__':
         print "Usage: %s test_file.json" % sys.argv[0]
         sys.exit(-1)
 
-    main_setup()
+    main_setup(None)
 
     file_parser = FileParser()
     network = file_parser.create_network(sys.argv[1])
