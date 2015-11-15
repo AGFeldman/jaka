@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/AGFeldman/jaka.svg?branch=master)](https://travis-ci.org/AGFeldman/jaka)
+
 Example usage:
 
 `python run.py cases/case0.json`
