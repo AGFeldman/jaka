@@ -23,8 +23,8 @@ class Router(Device):
 
     def plug_in_link(self, link_endpoint):
         if isinstance(link_endpoint.distant_device, Host):
-            self.routing_table[link_endpoint.distant_device.id_] = (link_endpoint,
-                                                                    link_endpoint.get_cost())
+            self.routing_table[link_endpoint.distant_device.id_] = (
+                    link_endpoint, link_endpoint.get_default_cost())
             # Shallow copy
             self.provisional_routing_table = copy.copy(self.routing_table)
             self.endpoints_to_hosts.append(link_endpoint)
@@ -84,10 +84,6 @@ class Router(Device):
 
         if updated_table:
             self.send_routing_packets()
-        # TODO(agf): What if routing packets get dropped?
-        # Should we get acks for routing packets?
-        # Can routers do anything to make sure that they don't overflow the
-        # buffers? (Can we think of the buffers as "inside" the routers?) (No)
 
     def send_routing_packets(self):
         distances = []
@@ -118,6 +114,8 @@ class Router(Device):
     def initialize_routing_tables_beat(self):
         def beat():
             self.routing_table = copy.copy(self.provisional_routing_table)
+            for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
+                endpoint.reset_cost()
             globals_.event_manager.add(5, beat)
         # TODO(agf): Think about when we want to set up this beat
         globals_.event_manager.add(0.4, beat)
