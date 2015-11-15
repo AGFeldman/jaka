@@ -1,6 +1,7 @@
 import globals_
 
 from graph import Graph
+import matplotlib
 from matplotlib.backends.backend_pdf import PdfPages
 
 
@@ -13,6 +14,9 @@ class StatsManager(object):
     '''
 
     def __init__(self, output_name):
+        # Silence a warning
+        matplotlib.rcParams['figure.max_open_warning'] = 0
+
         self.graphs = dict()
         self.tag_count = 0
         if output_name is not None:
