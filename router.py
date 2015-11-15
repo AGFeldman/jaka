@@ -24,7 +24,7 @@ class Router(Device):
     def plug_in_link(self, link_endpoint):
         if isinstance(link_endpoint.distant_device, Host):
             self.routing_table[link_endpoint.distant_device.id_] = (
-                    link_endpoint, link_endpoint.get_default_cost())
+                    link_endpoint, link_endpoint.link.get_cost())
             # Shallow copy
             self.provisional_routing_table = copy.copy(self.routing_table)
             self.endpoints_to_hosts.append(link_endpoint)
@@ -60,7 +60,7 @@ class Router(Device):
         updated_table = False
 
         endpoint_to_other_router = self.endpoints_to_routers[packet.src]
-        dist_to_other_router = endpoint_to_other_router.get_cost()
+        dist_to_other_router = endpoint_to_other_router.link.get_cost()
 
         for dst_id, dist in packet.distances:
             alt_cost = dist_to_other_router + dist
@@ -68,18 +68,26 @@ class Router(Device):
                 self.provisional_routing_table[dst_id] = (endpoint_to_other_router, alt_cost)
                 updated_table = True
             else:
-                _, current_cost = self.provisional_routing_table[dst_id]
+                cur_forwarding_endpoint, current_cost = self.provisional_routing_table[dst_id]
                 if alt_cost < current_cost:
                     self.provisional_routing_table[dst_id] = (endpoint_to_other_router, alt_cost)
+                    updated_table = True
+                elif cur_forwarding_endpoint is endpoint_to_other_router and (
+                        alt_cost > current_cost):
+                    self.provisional_routing_table[dst_id] = (endpoint_to_other_router,
+                                                              float('inf'))
                     updated_table = True
 
         # Cost to send directly to an adjacent host might also have changed
         for endpoint in self.endpoints_to_hosts:
             dst_id = endpoint.distant_device.id_
-            direct_cost = endpoint.get_cost()
-            _, current_cost = self.provisional_routing_table[dst_id]
+            direct_cost = endpoint.link.get_cost()
+            cur_forwarding_endpoint, current_cost = self.provisional_routing_table[dst_id]
             if direct_cost < current_cost:
                 self.provisional_routing_table[dst_id] = (endpoint, direct_cost)
+                updated_table = True
+            elif endpoint is cur_forwarding_endpoint and direct_cost > current_cost:
+                self.provisional_routing_table[dst_id] = (endpoint, float('inf'))
                 updated_table = True
 
         if updated_table:
@@ -102,11 +110,14 @@ class Router(Device):
         And, schedule send_routing_packets() to be called in 50 ms, in case
         routing packets have been dropped
         Schedule send_routing_packets() to be called every 200 ms thereafter
+        Links measure their cost to this beat
         '''
         def one_off_send():
             self.send_routing_packets()
         globals_.event_manager.add(0, one_off_send)
         def beat():
+            for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
+                endpoint.link.measure_cost()
             self.send_routing_packets()
             globals_.event_manager.add(globals_.SEND_ROUTING_PACKETS_EVERY, beat)
         globals_.event_manager.add(0.05, beat)
@@ -118,7 +129,7 @@ class Router(Device):
         self.routing_table = copy.copy(self.provisional_routing_table)
         self.log_routing_table()
         for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
-            endpoint.reset_cost()
+            endpoint.link.reset_cost()
 
     def initialize_routing_tables_beat(self):
         def beat():

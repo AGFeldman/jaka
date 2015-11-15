@@ -87,13 +87,22 @@ class Flow(object):
 
         self.finished = False
 
+        self.time_of_last_window_reduction = float('-inf')
+
     def init_window_size(self):
         self.window_size = 1
 
     def update_window_size_missed_ack(self):
-        new_size = (self.window_size // 2) + (self.window_size % 2)
-        assert new_size >= 1
-        self.set_window_size(new_size)
+        '''
+        Cut the window size in half, unless the window size was halved within
+        the previous 0.5 seconds
+        '''
+        time = globals_.event_manager.get_time()
+        if time - self.time_of_last_window_reduction > 0.5:
+            self.time_of_last_window_reduction = time
+            new_size = (self.window_size // 2) + (self.window_size % 2)
+            assert new_size >= 1
+            self.set_window_size(new_size)
 
     def set_window_size(self, size):
         self.window_size = size
