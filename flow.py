@@ -14,12 +14,12 @@ class RTTE(float):
     '''
     def __init__(self):
         # Initial estimate is 100 ms
-        self.estimate = 0.1
+        self.estimate = globals_.INITIAL_RTT_ESTIMATE
         self.ndatapoints = 0
 
     def update_missed_ack(self):
         if self.ndatapoints == 0:
-            self.estimate += 0.1
+            self.estimate += globals_.INITIAL_RTT_ESTIMATE
 
     def no_op(self):
         pass
