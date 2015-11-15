@@ -52,7 +52,6 @@ class LinkEndpoint(object):
                                       self.get_buffer_occupancy())
 
     def receive_from_device(self, packet):
-        # TODO(agf): Add fields 'stats_packets_received' and 'stats_packets_dropped'
         if self.buffer_space_free >= packet.size:
             self.buffer.append((packet, globals_.event_manager.get_time()))
             self.buffer_space_free -= packet.size
@@ -83,20 +82,6 @@ class LinkEndpoint(object):
         self.notify_buffer_occupancy()
         return packet
 
-    def get_default_cost(self):
-        return self.link.get_default_cost()
-
-    def get_cost(self):
-        '''
-        This could be many different things, such as queue length, average
-        queueing delay, or transmission+propagation time
-        Or it could be constant ("one link is one hop")
-        '''
-        return self.link.get_cost()
-
-    def reset_cost(self):
-        self.link.reset_cost()
-
 
 class Link(object):
     def __init__(self, id_=None, device1=None, device2=None, rate=0, delay=0, buffer_size=0):
@@ -110,6 +95,9 @@ class Link(object):
         self.id_ = id_
         self.rate = rate
         self.delay = delay
+
+        # A list of (time_of_measurement, cost_measurement) tuples
+        self.cost_measurements = []
 
         self.data_sent_graph_tag = globals_.stats_manager.new_graph(
                 title='Total Bits Sent Over {}'.format(self.id_),
@@ -133,16 +121,12 @@ class Link(object):
         device1.plug_in_link(self.endpoint1)
         device2.plug_in_link(self.endpoint2)
 
-        # TODO(agf): Make this global or user-specifiable
         self.max_bits_sent_in_sequence = globals_.LINK_MAX_BITS_IN_SEQUENCE
         self.bits_sent_in_sequence = 0
         self.packet_transmitting = None
         self.waiting_prop_time = False
         self.waiting_to_decide_direction = True
         self.src_dst_endpoints = None
-
-        self.cost_measurements = []
-        self.reset_cost()
 
     def __str__(self):
         return self.id_
@@ -188,39 +172,28 @@ class Link(object):
         time_transmission_finishes = self.packet_transmitting.size / self.rate
         globals_.event_manager.add(time_transmission_finishes, packet_finishes_transmitting)
 
-    def get_default_cost(self):
-        return 0.5
+    def measure_cost(self):
+        current_time = globals_.event_manager.get_time()
+        if not self.cost_measurements or self.cost_measurements[-1][0] != current_time:
+            cost_measurement = (self.endpoint1.get_buffer_occupancy_percentage() +
+                                self.endpoint2.get_buffer_occupancy_percentage()) / 2
+            self.cost_measurements.append((current_time, cost_measurement))
 
     def get_cost(self):
-        '''
-        A cost measurement is taken.
-        Cost measurement is the average of the buffer occupancy percentages.
-        Returns cost, which is based on cost measurements.
-        '''
-        cost_measurement = (self.endpoint1.get_buffer_occupancy_percentage() +
-                            self.endpoint2.get_buffer_occupancy_percentage()) / 2
-        self.cost_measurements.append((globals_.event_manager.get_time(), cost_measurement))
-        return self.get_cost_from_measurements()
-
-    def get_cost_from_measurements(self):
-        '''
-        Cost is the average of the cost measurements, with each measurment
-        weighted by the time since the previous measurement.
-        '''
-        reset_time = self.cost_measurements[0][0]
-        prev_time = reset_time
-        weighted_measurement_sum = 0
-        for time, measurement in self.cost_measurements:
-            weighted_measurement_sum += (time - prev_time) * measurement
-            prev_time = time
-        return weighted_measurement_sum / (time - reset_time)
+        if not self.cost_measurements:
+            return float('inf')
+        return sum([tup[1] for tup in self.cost_measurements]) / len(self.cost_measurements)
 
     def reset_cost(self):
         '''
         This should be called when routers reset reset their routing tables.
         Resets cost measurements.
         '''
-        self.cost_measurements = [(globals_.event_manager.get_time(), 0)]
+        current_time = globals_.event_manager.get_time()
+        if self.cost_measurements and self.cost_measurements[-1][0] == current_time:
+            self.cost_measurements = [self.cost_measurements[-1]]
+        else:
+            self.cost_measurements = []
 
     def act(self):
         if self.waiting_prop_time or self.packet_transmitting:
