@@ -128,7 +128,7 @@ class Link(object):
         device2.plug_in_link(self.endpoint2)
 
         # TODO(agf): Make this global or user-specifiable
-        self.max_bits_sent_in_sequence = 10 ** 5
+        self.max_bits_sent_in_sequence = globals_.LINK_MAX_BITS_IN_SEQUENCE
         self.bits_sent_in_sequence = 0
         self.packet_transmitting = None
         self.waiting_prop_time = False

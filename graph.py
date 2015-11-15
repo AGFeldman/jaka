@@ -2,6 +2,8 @@ from __future__ import division
 
 import matplotlib.pyplot as plt
 
+import globals_
+
 
 class Graph(object):
     '''
@@ -12,8 +14,8 @@ class Graph(object):
                  title=None,
                  ylabel=None,
                  is_rate=False,
-                 sliding_window_width=1,
-                 sliding_window_step=0.1):
+                 sliding_window_width=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_WIDTH,
+                 sliding_window_step=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_STEP):
         '''
         If is_rate is True, then the data is plotted as a rate.
             Rate data points are |sliding_window_step| seconds apart.

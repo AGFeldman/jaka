@@ -108,7 +108,7 @@ class Router(Device):
         globals_.event_manager.add(0, one_off_send)
         def beat():
             self.send_routing_packets()
-            globals_.event_manager.add(0.2, beat)
+            globals_.event_manager.add(globals_.SEND_ROUTING_PACKETS_EVERY, beat)
         globals_.event_manager.add(0.05, beat)
 
     def initialize_routing_tables_beat(self):
@@ -116,9 +116,9 @@ class Router(Device):
             self.routing_table = copy.copy(self.provisional_routing_table)
             for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
                 endpoint.reset_cost()
-            globals_.event_manager.add(5, beat)
+            globals_.event_manager.add(globals_.SWITCH_ROUTING_TABLE_EVERY, beat)
         # TODO(agf): Think about when we want to set up this beat
-        globals_.event_manager.add(0.4, beat)
+        globals_.event_manager.add(globals_.INITIAL_ROUTING_TABLE_SWITCH, beat)
 
     def register_with_event_manager(self):
         self.initialize_routing_packets_beat()
