@@ -27,7 +27,7 @@ class Host(Device):
                 is_rate=True
         )
 
-        # self.bits_sent = 0
+        self.bits_sent = 0
         self.bits_received = 0
 
     def plug_in_link(self, link_endpoint):
