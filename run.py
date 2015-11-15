@@ -1,10 +1,7 @@
-import random
 import sys
 
 import globals_
 
-from event_manager import EventManager
-from stats_manager import StatsManager
 from file_parser import FileParser
 from main_setup import main_setup
 
