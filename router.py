@@ -111,11 +111,18 @@ class Router(Device):
             globals_.event_manager.add(globals_.SEND_ROUTING_PACKETS_EVERY, beat)
         globals_.event_manager.add(0.05, beat)
 
+    def log_routing_table(self):
+        globals_.event_manager.log('Routing table for {} is {}'.format(self, self.routing_table))
+
+    def switch_routing_table(self):
+        self.routing_table = copy.copy(self.provisional_routing_table)
+        self.log_routing_table()
+        for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
+            endpoint.reset_cost()
+
     def initialize_routing_tables_beat(self):
         def beat():
-            self.routing_table = copy.copy(self.provisional_routing_table)
-            for endpoint in self.endpoints_to_hosts + self.endpoints_to_routers.values():
-                endpoint.reset_cost()
+            self.switch_routing_table()
             globals_.event_manager.add(globals_.SWITCH_ROUTING_TABLE_EVERY, beat)
         # TODO(agf): Think about when we want to set up this beat
         globals_.event_manager.add(globals_.INITIAL_ROUTING_TABLE_SWITCH, beat)
