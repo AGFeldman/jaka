@@ -4,6 +4,7 @@ import globals_
 
 from packet import DataPacket, AckPacket
 
+
 class RTTE(float):
     '''
     Keep a Round Trip Time estimate
