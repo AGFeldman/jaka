@@ -2,6 +2,7 @@ import globals_
 
 from graph import Graph
 import matplotlib
+matplotlib.use('Agg')
 from matplotlib.backends.backend_pdf import PdfPages
 
 
