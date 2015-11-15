@@ -1,4 +1,5 @@
 import random
+import heapq
 
 
 class EventManager(object):
@@ -25,8 +26,7 @@ class EventManager(object):
             with open(self.output_name, 'w') as f:
                 f.write('')
 
-        # Note: If queue grows huge, performance will suffer because growing
-        # python lists is slow
+        # Use heapq.heappush(self.queue, ...) and heapq.heappop(self.queue)
         self.queue = []
         self.time = 0
 
@@ -60,12 +60,11 @@ class EventManager(object):
 
     def add(self, time_until_action, action):
         assert time_until_action >= 0
-        self.queue.append((self.get_time() + time_until_action, action))
-        self.queue.sort()
+        heapq.heappush(self.queue, (self.get_time() + time_until_action, action))
 
     def run(self):
         while self.queue:
-            self.time, scheduled_action = self.queue.pop(0)
+            self.time, scheduled_action = heapq.heappop(self.queue)
             scheduled_action()
 
             # Now we handle instantaneous actions.
