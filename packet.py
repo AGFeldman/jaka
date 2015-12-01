@@ -26,14 +26,20 @@ class Packet(object):
 
 
 class DataPacket(Packet):
-    def __init__(self, id_=None, src=None, dst=None, flow=None):
+    def __init__(self, id_=None, src=None, dst=None, flow=None, timeout=None):
         Packet.__init__(self, id_=id_, src=src, dst=dst, flow=flow, size=globals_.DATA_PACKET_SIZE)
+        self.timeout = timeout
 
 
 class AckPacket(Packet):
-    def __init__(self, id_=None, src=None, dst=None, flow=None):
+    def __init__(self, id_=None, src=None, dst=None, flow=None, next_expected=None):
         Packet.__init__(self, id_=id_, src=src, dst=dst, flow=flow, size=globals_.ACK_SIZE)
 
+        # Next packet sequence number (ie id_) expected by the receiving end of a flow
+        self.next_expected = next_expected
+
+    def __str__(self):
+        return '({}, id={}, src={}, dst={}, nxt={})'.format(type(self), self.id_, self.src, self.dst, self.next_expected)
 
 class RoutingPacket(Packet):
     def __init__(self, src=None, distances=None):

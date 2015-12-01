@@ -44,13 +44,16 @@ class Host(Device):
         else:
             assert isinstance(packet, DataPacket)
             # Log reception for statistics
+            # TODO(jg): combine these two into flow.receive_packet() or something
             packet.flow.log_packet_received()
+            packet.flow.update_next_expected(packet.id_)
             # Send an ack immediately
             # TODO(agf): Do we really want to send acks immediately?
             ack = AckPacket(id_=packet.id_,
                             src=self.id_,
                             dst=packet.src,
-                            flow=packet.flow)
+                            flow=packet.flow,
+                            next_expected=packet.flow.next_expected)
             self.send_packet(ack)
 
     def send_packet(self, packet):
