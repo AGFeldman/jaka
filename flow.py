@@ -89,6 +89,16 @@ class Flow(object):
 
         self.time_of_last_window_reduction = float('-inf')
 
+        # Smallest sequence number that receiver hasn't received
+        self.next_expected = 0
+        self.packets_received_out_of_order = []
+
+        # Start of transmit window (earliest unacknowledged sequence number)
+        self.transmit_window_start = 0
+
+        # If we eventually do selective acknowledgements
+        #self.packets_ackd_out_of_order = []
+
     def init_window_size(self):
         self.window_size = 1
 
@@ -122,6 +132,7 @@ class Flow(object):
     def receive_ack(self, packet):
         assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
+        self.update_transmit_window(packet.next_expected)
         if packet.id_ not in self.packets_waiting_for_acks:
             # This could happen if the ack comes too late
             globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
@@ -139,12 +150,20 @@ class Flow(object):
         self.src_obj.send_packet(packet)
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
+            # This packet could have been resent after this timeout event was created;
+            # in that case, this timeout event is now invalid (real timeout should be later)
+            if packet.timeout != globals_.event_manager.get_time():
+                # TODO(jg): log this
+                return
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has not received it'.format(
                             self.id_, packet.id_))
                 self.rtte.update_missed_ack()
-                self.packets_to_send.insert(0, packet)
+
+                # We no longer use the packets_to_send as a queue
+                # self.packets_to_send.insert(0, packet)
+
                 # Remove from list of packets waiting for acks
                 # This might be necessary to enable more sends, since sends can
                 # only occur when #waiting_for_acks < window_size
@@ -155,21 +174,36 @@ class Flow(object):
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
         # Wait 3 times the round-trip-time-estimate
+        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
         globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
 
     def act(self):
-        if not self.packets_to_send:
-            if not self.packets_waiting_for_acks and globals_.event_manager.get_time() > self.start:
-                self.finished = True
+        acted = False
+        assert self.transmit_window_start <= len(self.packets_to_send)
+        if globals_.event_manager.get_time() > self.start and (self.transmit_window_start == len(self.packets_to_send)) and not self.packets_waiting_for_acks:
+            self.finished = True
             return False
-        n_waiting_for_acks = len(self.packets_waiting_for_acks)
-        if n_waiting_for_acks >= self.window_size:
-            return False
-        for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
-            packet = self.packets_to_send.pop(0)
-            self.send_packet(packet)
-            globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
-        return True
+        elif self.transmit_window_start < len(self.packets_to_send):
+            end_range = min(self.transmit_window_start + self.window_size, len(self.packets_to_send))
+            for id_ in xrange(self.transmit_window_start, end_range):
+                if id_ not in self.packets_waiting_for_acks:
+                    packet = self.packets_to_send[id_]
+                    self.send_packet(packet)
+                    globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
+                    acted = True
+        return acted
+        # if not self.packets_to_send:
+        #     if not self.packets_waiting_for_acks and globals_.event_manager.get_time() > self.start:
+        #         self.finished = True
+        #     return False
+        # n_waiting_for_acks = len(self.packets_waiting_for_acks)
+        # if n_waiting_for_acks >= self.window_size:
+        #     return False
+        # for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
+        #     packet = self.packets_to_send.pop(0)
+        #     self.send_packet(packet)
+        #     globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
+        # return True
 
     def generate_packets_to_send(self):
         '''
@@ -191,8 +225,34 @@ class Flow(object):
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
+        # DEBUG(jg)
+        globals_.event_manager.log("GOT INTO flow.log_packet_received")
+        # ENDEBUG
         self.num_packets_received += 1
         globals_.stats_manager.notify(self.num_packets_received_graph_tag,
                                       self.num_packets_received)
         globals_.stats_manager.notify(self.rate_packets_received_graph_tag,
                                       self.num_packets_received)
+
+    def update_next_expected(self, packet_id):
+        if packet_id == self.next_expected:
+            self.next_expected += 1
+            while self.next_expected in self.packets_received_out_of_order:
+                self.packets_received_out_of_order.remove(self.next_expected)
+                self.next_expected += 1
+        elif packet_id not in self.packets_received_out_of_order and packet_id > self.next_expected: 
+            self.packets_received_out_of_order.append(packet_id)
+    
+    ## This would be useful if we do selective acknowledgements
+    # def update_transmit_window(self, packet_id):
+    #     if packet_id == self.transmit_window_start:
+    #         self.transmit_window_start += 1
+    #         while self.transmit_window_start in self.packets_ackd_out_of_order:
+    #             self.packets_ackd_out_of_order.remove(self.transmit_window_start)
+    #             self.transmit_window_start += 1
+    #     elif packet_id not in self.packets_ackd_out_of_order and packet_id > self.transmit_window_start: 
+    #         self.packets_ackd_out_of_order.append(packet_id)
+
+    def update_transmit_window(self, ack_next_expected):
+        if ack_next_expected > self.transmit_window_start:
+            self.transmit_window_start = ack_next_expected
