@@ -101,26 +101,52 @@ class Flow(object):
 
         # TCP States (affect how window is changed)
         self.slow_start = True
+        self.congestion_avoidance = False
+        self.ssthresh = float('inf')
 
     def init_window_size(self):
         self.window_size = 1
+        self.window_size_float = float(1)
 
+    # This is called when waiting to receive an ack for a sent packet times out
     def update_window_size_missed_ack(self):
         '''
-        Cut the window size in half, unless the window size was halved within
-        the previous 0.5 seconds
+        Set ssthresh to half of the current window size,
+        unless a timeout happened within the past 0.5 seconds,
+        then set the window size to 1
         '''
         time = globals_.event_manager.get_time()
         if time - self.time_of_last_window_reduction > 0.5:
             self.time_of_last_window_reduction = time
             new_size = (self.window_size // 2) + (self.window_size % 2)
             assert new_size >= 1
-            self.set_window_size(new_size)
+            # DEBUG(jg)
+            globals_.event_manager.log('WINDOW updating ssthresh to {}'.format(new_size))
+            # ENDEBUG
+            self.ssthresh = new_size
+        self.set_window_size(1)
 
+    def retransmit(self):
+        self.packets_waiting_for_acks = dict()
+        self.act()
+        
     def set_window_size(self, size):
         self.window_size = size
+        self.adjust_state(size)
         globals_.stats_manager.notify(self.window_size_graph_tag, size)
 
+    def enter_congestion_avoidance(self):
+        globals_.event_manager.log('WINDOW entering CA, w = {}'.format(self.window_size))
+        self.slow_start = False
+        self.congestion_avoidance = True
+        self.window_size_float = self.window_size
+        
+    def adjust_state(self, size):
+        if size < self.ssthresh:
+            self.slow_start = True
+            self.congestion_avoidance = False
+        elif (size >= self.ssthresh) and self.slow_start:
+            self.enter_congestion_avoidance()
 
     # TODO(jg): remove this; we no longer grow window size like this
     def start_growing_window_size(self):
@@ -174,6 +200,7 @@ class Flow(object):
                 # only occur when #waiting_for_acks < window_size
                 del self.packets_waiting_for_acks[packet.id_]
                 self.update_window_size_missed_ack()
+                self.retransmit()
             else:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
@@ -231,9 +258,6 @@ class Flow(object):
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
-        # DEBUG(jg)
-        globals_.event_manager.log("GOT INTO flow.log_packet_received")
-        # ENDEBUG
         self.num_packets_received += 1
         globals_.stats_manager.notify(self.num_packets_received_graph_tag,
                                       self.num_packets_received)
@@ -265,4 +289,13 @@ class Flow(object):
             # If in slow start mode, increment window on successful ack
             # This results in window doubling every RTT
             if self.slow_start:
-                self.window_size += 1
+                # DEBUG(jg)
+                globals_.event_manager.log('WINDOW: SLOW_START w = w + 1, w={}, ssthresh={}'.format(self.window_size, self.ssthresh))
+                # ENDEBUG(jg)
+                self.set_window_size(self.window_size + 1)
+            elif self.congestion_avoidance:
+                # DEBUG(jg)
+                globals_.event_manager.log('WINDOW: CONGESTION_AVOIDANCE w = w + 1/w, w={}, ssthresh={}'.format(self.window_size, self.ssthresh))
+                # ENDEBUG(jg)
+                self.window_size_float += 1.0 / self.window_size_float
+                self.set_window_size(int(self.window_size_float // 1))
