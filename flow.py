@@ -99,6 +99,9 @@ class Flow(object):
         # If we eventually do selective acknowledgements
         #self.packets_ackd_out_of_order = []
 
+        # TCP States (affect how window is changed)
+        self.slow_start = True
+
     def init_window_size(self):
         self.window_size = 1
 
@@ -118,6 +121,8 @@ class Flow(object):
         self.window_size = size
         globals_.stats_manager.notify(self.window_size_graph_tag, size)
 
+
+    # TODO(jg): remove this; we no longer grow window size like this
     def start_growing_window_size(self):
         # Window size grows by 1 every round-trip-time estimate
         # TODO(agf): If round-trip-time estimate drops sharply, window size
@@ -221,7 +226,8 @@ class Flow(object):
     def register_with_event_manager(self):
         def setup():
             self.generate_packets_to_send()
-            self.start_growing_window_size()
+            # TODO(jg): remove this; we no longer grow window size like this
+            # self.start_growing_window_size()
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
@@ -256,3 +262,7 @@ class Flow(object):
     def update_transmit_window(self, ack_next_expected):
         if ack_next_expected > self.transmit_window_start:
             self.transmit_window_start = ack_next_expected
+            # If in slow start mode, increment window on successful ack
+            # This results in window doubling every RTT
+            if self.slow_start:
+                self.window_size += 1
