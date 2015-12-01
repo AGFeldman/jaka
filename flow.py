@@ -112,11 +112,11 @@ class Flow(object):
     def update_window_size_missed_ack(self):
         '''
         Set ssthresh to half of the current window size,
-        unless a timeout happened within the past 0.5 seconds,
+        unless a timeout happened within the past 0.5 seconds or rtte,
         then set the window size to 1
         '''
         time = globals_.event_manager.get_time()
-        if time - self.time_of_last_window_reduction > 0.5:
+        if time - self.time_of_last_window_reduction > max(0.5, self.rtte.estimate):
             self.time_of_last_window_reduction = time
             new_size = (self.window_size // 2) + (self.window_size % 2)
             assert new_size >= 1
@@ -124,7 +124,7 @@ class Flow(object):
             globals_.event_manager.log('WINDOW updating ssthresh to {}'.format(new_size))
             # ENDEBUG
             self.ssthresh = new_size
-        self.set_window_size(1)
+            self.set_window_size(1)
 
     def retransmit(self):
         self.packets_waiting_for_acks = dict()
