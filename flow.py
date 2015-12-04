@@ -104,6 +104,10 @@ class Flow(object):
         self.congestion_avoidance = False
         self.ssthresh = float('inf')
 
+        self.ndups = 0
+        self.dup_id = -1
+        self.fast_recovery = False
+
     def init_window_size(self):
         self.window_size = 1
         self.window_size_float = float(1)
@@ -115,10 +119,14 @@ class Flow(object):
         unless a timeout happened within the past 0.5 seconds or rtte,
         then set the window size to 1
         '''
+        if self.fast_recovery:
+            self.exit_fast_recovery()
+
         time = globals_.event_manager.get_time()
         if time - self.time_of_last_window_reduction > max(0.5, self.rtte.estimate):
             self.time_of_last_window_reduction = time
-            new_size = (self.window_size // 2) + (self.window_size % 2)
+            new_size = max(((self.window_size // 2) + (self.window_size % 2), 1))
+            print 'w={}, new_size={}'.format(self.window_size, new_size)
             assert new_size >= 1
             # DEBUG(jg)
             globals_.event_manager.log('WINDOW updating ssthresh to {}'.format(new_size))
@@ -160,9 +168,42 @@ class Flow(object):
             globals_.event_manager.add(self.rtte.estimate, grow)
         globals_.event_manager.add(self.rtte.estimate, grow)
 
+    def fast_retransmit(self, packet_id):
+        packet = self.packets_to_send[packet_id]
+        assert isinstance(packet, DataPacket)
+        self.src_obj.send_packet(packet)
+        globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
+        
+    def enter_fast_recovery(self):
+        self.ssthresh = max((self.window_size // 2, 2))
+        print 'Set ssthresh to {}'.format(self.ssthresh)
+        self.fast_recovery = True
+        
+    def exit_fast_recovery(self):
+        print 'Setting w to ssthresh, ssthresh={}'.format(self.ssthresh)
+        assert self.ssthresh != float('inf')
+        self.set_window_size(self.ssthresh)
+        self.ndups = 0
+        self.dup_id = -1
+        self.fast_recovery = False
+
     def receive_ack(self, packet):
         assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
+
+        # Update ndups
+        if packet.next_expected == self.dup_id:
+            self.ndups = self.ndups + 1
+        elif packet.next_expected > self.dup_id:
+            self.ndups = 1
+            self.dup_id = packet.next_expected
+
+        if self.ndups == 3 and packet.next_expected < len(self.packets_to_send):
+            self.fast_retransmit(packet.next_expected)
+            self.enter_fast_recovery()
+        elif self.fast_recovery and self.ndups < 3 and packet.next_expected > self.dup_id:
+            self.exit_fast_recovery()
+                
         self.update_transmit_window(packet.next_expected)
         if packet.id_ not in self.packets_waiting_for_acks:
             # This could happen if the ack comes too late
@@ -284,7 +325,12 @@ class Flow(object):
     #         self.packets_ackd_out_of_order.append(packet_id)
 
     def update_transmit_window(self, ack_next_expected):
-        if ack_next_expected > self.transmit_window_start:
+        if self.fast_recovery:
+            self.set_window_size(self.ssthresh + self.ndups)
+            # DEBUG(jg)
+            globals_.event_manager.log('WINDOW: FAST_RECOVERY, ndup={}, w={}, ssthresh={}'.format(self.ndups, self.window_size, self.ssthresh))
+            # ENDEBUG(jg)
+        elif ack_next_expected > self.transmit_window_start:
             self.transmit_window_start = ack_next_expected
             # If in slow start mode, increment window on successful ack
             # This results in window doubling every RTT
