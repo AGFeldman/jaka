@@ -39,7 +39,9 @@ class AckPacket(Packet):
         self.next_expected = next_expected
 
     def __str__(self):
-        return '({}, id={}, src={}, dst={}, nxt={})'.format(type(self), self.id_, self.src, self.dst, self.next_expected)
+        return '({}, id={}, src={}, dst={}, nxt={})'.format(
+            type(self), self.id_, self.src, self.dst, self.next_expected)
+
 
 class RoutingPacket(Packet):
     def __init__(self, src=None, distances=None):
