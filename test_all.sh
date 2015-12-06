@@ -9,9 +9,9 @@ if [ "$status" == "0" ] && [ "$last_status" != "0" ]; then
 fi
 
 # generate.sh test
-echo "Running generate.sh"
+echo "Running generate_without_dot.sh"
 cd cases
-bash generate.sh > /dev/null
+bash generate_without_dot.sh > /dev/null
 last_status=$?
 if [ "$status" == "0" ] && [ "$last_status" != "0" ]; then
     status=$last_status
