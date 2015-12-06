@@ -3,7 +3,6 @@ ptyhon:
     - "2.7"
 
 install: 
-    - sudo apt-get install graphviz
     - pip install -r requirements.txt
 
 script: bash test_all.sh
