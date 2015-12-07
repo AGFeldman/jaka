@@ -277,14 +277,15 @@ class Flow(object):
             globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
             return
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
-        original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
-        assert packet.src == original_packet.dst and packet.dst == original_packet.src
-        rtt = globals_.event_manager.get_time() - time_sent
-        self.rtte.update_rtt_datapoint(rtt)
+        data_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
+        assert packet.src == data_packet.dst and packet.dst == data_packet.src
+        if data_packet.times_sent == 1:
+            rtt = globals_.event_manager.get_time() - time_sent
+            self.rtte.update_rtt_datapoint(rtt)
+            globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
         # del self.packets_waiting_for_acks[packet.id_]
         self.update_packets_waiting_for_ack(packet.next_expected)
-        globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
     def reset_timeout(self, packet):
         assert isinstance(packet, DataPacket)
@@ -334,6 +335,8 @@ class Flow(object):
                 packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
         # ENDEBUG
         self.src_obj.send_packet(packet)
+        packet.times_sent = packet.times_sent + 1
+        
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
             # This packet could have been resent after this timeout event was created;
