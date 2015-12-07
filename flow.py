@@ -15,7 +15,15 @@ class RTTE(float):
     def __init__(self):
         # Initial estimate is 100 ms
         self.estimate = globals_.INITIAL_RTT_ESTIMATE
+        self.basertt = self.estimate
         self.ndatapoints = 0
+
+        # TODO(jg): remove
+        # Basertt is calculated as min of the last base_calc_range rtts
+        # self.base_calc_range = 10
+        # self.stored_rtts = []
+        # for i in xrange(self.base_calc_range):
+        #     self.stored_rtts.append(self.estimate)
 
     def update_missed_ack(self):
         if self.ndatapoints == 0:
@@ -24,10 +32,17 @@ class RTTE(float):
     def no_op(self):
         pass
 
+    def update_basertt(self, rtt):
+        # TODO(jg): remove/decide if use (basertt is min of last X rtts)
+        # self.stored_rtts[self.ndatapoints % self.base_calc_range] = rtt
+        # self.basertt = min(self.stored_rtts)
+        self.basertt = min((self.basertt, rtt))
+
     def update_rtt_datapoint(self, rtt):
         self.ndatapoints += 1
         if self.ndatapoints == 1:
             self.estimate = rtt
+            self.basertt = self.estimate
         else:
             # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
             # this formula for updating means
@@ -35,6 +50,8 @@ class RTTE(float):
             # DEBUG(jg)
             globals_.event_manager.log('WINDOW update rtte to {}'.format(self.estimate))
             # ENDEBUG
+            # Update basertt
+            self.update_basertt(rtt)
         # We no longer need to perform updates when acks are missed
         self.update_missed_ack = self.no_op
 
@@ -116,6 +133,13 @@ class Flow(object):
         self.fast_recovery = False
         self.time_last_fr = -1
 
+        # TCP FAST params
+        if self.protocol == 'FAST':
+            self.tcp_fast = True
+            self.alpha = 40
+        else:
+            self.tcp_fast = False
+
     def init_window_size(self):
         self.window_size = 1
         self.window_size_float = float(1)
@@ -190,10 +214,31 @@ class Flow(object):
         # TODO(agf): If round-trip-time estimate drops sharply, window size
         # still won't increase until it was last scheduled to increase
         def grow():
-            self.set_window_size(self.window_size + 1)
+            # self.set_window_size(self.window_size + 1)
+            # TCP FAST grow function
+
+            # DEBUG(jg)
+            old_window = self.window_size
+            old_window_float = self.window_size_float
+            # ENDEBUG(jg)
+            if (self.congestion_avoidance):
+                self.window_size_float = ((self.rtte.basertt / self.rtte.estimate)
+                                          * self.window_size_float + self.alpha)
+                self.set_window_size(int(self.window_size_float // 1))
+                # DEBUG(jg)
+                globals_.event_manager.log(
+                    ('WINDOW  TCP_FAST growth, base={}, est={},'
+                     + 'base/est={}, old_wf={}, new_wf={},        old_w={}, new_w={}')
+                    .format(self.rtte.basertt, self.rtte.estimate,
+                            self.rtte.basertt / self.rtte.estimate,
+                            old_window_float, self.window_size_float,
+                            old_window, self.window_size)
+                )
+                # ENDEBUG
+
             globals_.event_manager.log('{} window size is now {}'.format(
                 self.id_, self.window_size))
-            globals_.event_manager.add(self.rtte.estimate, grow)
+            globals_.event_manager.add(0.050, grow)
         globals_.event_manager.add(self.rtte.estimate, grow)
 
     def fast_retransmit(self, packet_id):
@@ -256,7 +301,7 @@ class Flow(object):
         # ENDEBUG
 
         # Update ndups
-        if self.congestion_avoidance:
+        if self.congestion_avoidance and not self.tcp_fast:
             if packet.next_expected == self.dup_id:
                 self.ndups = self.ndups + 1
             elif packet.next_expected > self.dup_id:
@@ -277,14 +322,15 @@ class Flow(object):
             globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
             return
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
-        original_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
-        assert packet.src == original_packet.dst and packet.dst == original_packet.src
-        rtt = globals_.event_manager.get_time() - time_sent
-        self.rtte.update_rtt_datapoint(rtt)
+        data_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
+        assert packet.src == data_packet.dst and packet.dst == data_packet.src
+        if data_packet.times_sent == 1:
+            rtt = globals_.event_manager.get_time() - time_sent
+            self.rtte.update_rtt_datapoint(rtt)
+            globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
         # del self.packets_waiting_for_acks[packet.id_]
         self.update_packets_waiting_for_ack(packet.next_expected)
-        globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
     def reset_timeout(self, packet):
         assert isinstance(packet, DataPacket)
@@ -334,6 +380,8 @@ class Flow(object):
                 packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
         # ENDEBUG
         self.src_obj.send_packet(packet)
+        packet.times_sent = packet.times_sent + 1
+
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
             # This packet could have been resent after this timeout event was created;
@@ -416,7 +464,8 @@ class Flow(object):
         def setup():
             self.generate_packets_to_send()
             # TODO(jg): remove this; we no longer grow window size like this
-            # self.start_growing_window_size()
+            if self.tcp_fast:
+                self.start_growing_window_size()
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
@@ -468,7 +517,7 @@ class Flow(object):
                     'WINDOW: updating window in SLOW_START w = w + 1, w:={}, ssthresh={}'.format(
                         self.window_size, self.ssthresh))
                 # ENDEBUG(jg)
-            elif self.congestion_avoidance:
+            elif self.congestion_avoidance and not self.tcp_fast:
                 self.window_size_float += 1.0 / self.window_size_float
                 self.set_window_size(int(self.window_size_float // 1))
                 # DEBUG(jg)

@@ -28,6 +28,7 @@ class Packet(object):
 class DataPacket(Packet):
     def __init__(self, id_=None, src=None, dst=None, flow=None, timeout=None):
         Packet.__init__(self, id_=id_, src=src, dst=dst, flow=flow, size=globals_.DATA_PACKET_SIZE)
+        self.times_sent = 0
         self.timeout = timeout
 
 
