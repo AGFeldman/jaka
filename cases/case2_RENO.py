@@ -87,9 +87,12 @@ description = [
         'delay': 10 * 10**-3,
         'buffer': 128 * 10**3 * 8
         },
-    {'id': 'F1', 'type': 'flow', 'src': 'S1', 'dst': 'T1', 'amount': 35 * 10**6 * 8, 'start': 0.5},
-    {'id': 'F2', 'type': 'flow', 'src': 'S2', 'dst': 'T2', 'amount': 15 * 10**6 * 8, 'start': 10},
-    {'id': 'F3', 'type': 'flow', 'src': 'S3', 'dst': 'T3', 'amount': 30 * 10**6 * 8, 'start': 20},
+    {'id': 'F1', 'type': 'flow', 'src': 'S1', 'dst': 'T1', 'amount': 35 * 10**6 * 8,
+        'start': 0.5, 'protocol': 'RENO'},
+    {'id': 'F2', 'type': 'flow', 'src': 'S2', 'dst': 'T2', 'amount': 15 * 10**6 * 8,
+        'start': 10, 'protocol': 'RENO'},
+    {'id': 'F3', 'type': 'flow', 'src': 'S3', 'dst': 'T3', 'amount': 30 * 10**6 * 8,
+        'start': 20, 'protocol': 'RENO'},
     ]
 
 print json.dumps(description)

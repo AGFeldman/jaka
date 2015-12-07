@@ -38,5 +38,6 @@ class FileParser(object):
                                  start=entity['start'],
                                  amount=entity['amount'],
                                  src_id=entity['src'],
-                                 dst_id=entity['dst'])
+                                 dst_id=entity['dst'],
+                                 protocol=entity['protocol'])
         return network
