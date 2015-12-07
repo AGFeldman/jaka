@@ -135,7 +135,7 @@ class Flow(object):
 
         # TCP FAST params
         self.tcp_fast = True
-        self.alpha = 1
+        self.alpha = 10
 
     def init_window_size(self):
         self.window_size = 1
