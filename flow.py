@@ -110,6 +110,7 @@ class Flow(object):
         self.ndups = 0
         self.dup_id = -1
         self.fast_recovery = False
+        self.time_last_fr = -1
 
     def init_window_size(self):
         self.window_size = 1
@@ -201,12 +202,18 @@ class Flow(object):
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
         # set new timeout times
-        for id_ in self.packets_waiting_for_acks.keys():
-            self.reset_timeout(self.packets_to_send[id_])
+        #for id_ in self.packets_waiting_for_acks.keys():
+        #    self.reset_timeout(self.packets_to_send[id_])
 
         globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
 
     def enter_fast_recovery(self):
+        # Do not enter fr if did it recently
+        if globals_.event_manager.get_time() - self.time_last_fr \
+           < max(0.5, 3*self.rtte.estimate):
+            return
+
+        self.time_last_fr = globals_.event_manager.get_time()
         self.ssthresh = max((self.window_size // 2, 2))
         self.set_window_size(self.ssthresh + self.ndups)
         # DEBUG(jg)
