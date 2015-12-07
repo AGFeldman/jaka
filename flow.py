@@ -336,7 +336,7 @@ class Flow(object):
         # ENDEBUG
         self.src_obj.send_packet(packet)
         packet.times_sent = packet.times_sent + 1
-        
+
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
             # This packet could have been resent after this timeout event was created;
