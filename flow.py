@@ -40,13 +40,15 @@ class RTTE(float):
 
 
 class Flow(object):
-    def __init__(self, id_=None, start=None, amount=None, src_obj=None, dst_obj=None):
+    def __init__(self, id_=None, start=None, amount=None, src_obj=None, dst_obj=None,
+                 protocol=None):
         '''
         id_ is e.g. "F1"
         start is the time that the flow should start, in seconds
         amount is the amount of data to send, in bits
         src_obj is the Host object for the source
         dst_obj is the Host object for the destination
+        protocol is either "RENO" or "FAST"
 
         public members:
             self.finished: Indicates whether the flow has finished transmitting all packets
@@ -56,6 +58,8 @@ class Flow(object):
         self.amount = amount
         self.src_obj = src_obj
         self.dst_obj = dst_obj
+        self.protocol = protocol
+        assert self.protocol in ('RENO', 'FAST')
 
         self.init_window_size()
 

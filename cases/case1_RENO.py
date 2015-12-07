@@ -59,7 +59,15 @@ description = [
         'delay': 10 * 10**-3,
         'buffer': 64 * 10**3 * 8
         },
-    {'id': 'F1', 'type': 'flow', 'src': 'H1', 'dst': 'H2', 'amount': 20 * 10**6 * 8, 'start': 0.5},
+    {
+        'id': 'F1',
+        'type': 'flow',
+        'src': 'H1',
+        'dst': 'H2',
+        'amount': 20 * 10**6 * 8,
+        'start': 0.5,
+        'protocol': 'RENO'
+        },
     ]
 
 print json.dumps(description)

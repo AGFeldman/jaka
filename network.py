@@ -41,7 +41,7 @@ class Network(object):
                                delay=delay,
                                buffer_size=buf_size)
 
-    def add_flow(self, id_, start, amount, src_id, dst_id):
+    def add_flow(self, id_, start, amount, src_id, dst_id, protocol):
         # Adds a Flow to the network
         if id_ in self.flows:
             raise ValueError("Duplicate Flow ID")
@@ -55,7 +55,8 @@ class Network(object):
                                start=start,
                                amount=amount,
                                src_obj=self.devices[src_id],
-                               dst_obj=self.devices[dst_id])
+                               dst_obj=self.devices[dst_id],
+                               protocol=protocol)
 
     def get_actors(self):
         # Returns a list of all actors in the network.

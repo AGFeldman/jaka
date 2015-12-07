@@ -47,13 +47,14 @@ def check(entity_list):
         assert len(r) == 2
         assert r['id'] in endpoints
 
-    # Flows should have 6 fields: id, type, src, dst, amount, and start
+    # Flows should have 6 fields: id, type, src, dst, amount, start, and protocol
     for f in flows:
-        assert len(f) == 6
+        assert len(f) == 7
         assert f['src'] in hr_ids
         assert f['dst'] in hr_ids
         assert f['amount'] >= 0
         assert f['start'] >= 0
+        assert f['protocol'] in ('RENO', 'FAST')
 
 
 if __name__ == '__main__':
