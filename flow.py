@@ -5,55 +5,51 @@ import globals_
 from packet import DataPacket, AckPacket
 
 
-class RTTE(float):
+class RTTE(object):
     '''
     Keep a Round Trip Time estimate
     This class should only be used with `from __future__ import division`
     Public members:
         self.estimate
     '''
-    def __init__(self):
+    def __init__(self, flow):
+        self.flow = flow
         # Initial estimate is 100 ms
         self.estimate = globals_.INITIAL_RTT_ESTIMATE
+        # The smallest round trip time observed
         self.basertt = self.estimate
+        # The largest round trip time observed
+        self.maxrtt = self.estimate
         self.ndatapoints = 0
 
-        # TODO(jg): remove
-        # Basertt is calculated as min of the last base_calc_range rtts
-        # self.base_calc_range = 10
-        # self.stored_rtts = []
-        # for i in xrange(self.base_calc_range):
-        #     self.stored_rtts.append(self.estimate)
+    def log_rtte(self):
+        globals_.event_manager.log('{} RTT estimate is {}'.format(self.flow.id_, self.estimate))
 
     def update_missed_ack(self):
         if self.ndatapoints == 0:
             self.estimate += globals_.INITIAL_RTT_ESTIMATE
-
-    def no_op(self):
-        pass
-
-    def update_basertt(self, rtt):
-        # TODO(jg): remove/decide if use (basertt is min of last X rtts)
-        # self.stored_rtts[self.ndatapoints % self.base_calc_range] = rtt
-        # self.basertt = min(self.stored_rtts)
-        self.basertt = min((self.basertt, rtt))
+            self.maxrtt = self.estimate
+        elif self.flow.protocol == 'FAST':
+            self.ndatapoints += 1
+            # Update the RTT estimate as if we observed a round trip time of 1.2 * self.maxrtt
+            # This does not necessarily make our RTT estimate more accurate. It is just part of
+            # TCP-FAST.
+            # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
+            # this formula for updating means
+            self.estimate = self.estimate + (1.2 * self.maxrtt - self.estimate) / self.ndatapoints
+            self.log_rtte()
 
     def update_rtt_datapoint(self, rtt):
         self.ndatapoints += 1
         if self.ndatapoints == 1:
             self.estimate = rtt
             self.basertt = self.estimate
+            self.maxrtt = self.estimate
         else:
-            # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
-            # this formula for updating means
+            self.basertt = min((self.basertt, rtt))
+            self.maxrtt = max((self.maxrtt, rtt))
             self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
-            # DEBUG(jg)
-            globals_.event_manager.log('WINDOW update rtte to {}'.format(self.estimate))
-            # ENDEBUG
-            # Update basertt
-            self.update_basertt(rtt)
-        # We no longer need to perform updates when acks are missed
-        self.update_missed_ack = self.no_op
+            self.log_rtte()
 
 
 class Flow(object):
@@ -81,7 +77,7 @@ class Flow(object):
         self.init_window_size()
 
         # Round trip time estimate
-        self.rtte = RTTE()
+        self.rtte = RTTE(self)
 
         self.packets_to_send = []
         # packets_waiting_for_acks is a map from packet_id -> (packet_obj, time_packet_was_sent)
