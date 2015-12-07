@@ -37,7 +37,7 @@ class RTTE(object):
             # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
             # this formula for updating means
             self.estimate = self.estimate + (1.2 * self.maxrtt - self.estimate) / self.ndatapoints
-            self.log_rtte()
+        self.log_rtte()
 
     def update_rtt_datapoint(self, rtt):
         self.ndatapoints += 1
@@ -49,7 +49,7 @@ class RTTE(object):
             self.basertt = min((self.basertt, rtt))
             self.maxrtt = max((self.maxrtt, rtt))
             self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
-            self.log_rtte()
+        self.log_rtte()
 
 
 class Flow(object):
