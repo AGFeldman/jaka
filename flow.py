@@ -134,8 +134,11 @@ class Flow(object):
         self.time_last_fr = -1
 
         # TCP FAST params
-        self.tcp_fast = True
-        self.alpha = 10
+        if self.protocol == 'FAST':
+            self.tcp_fast = True
+            self.alpha = 40
+        else:
+            self.tcp_fast = False
 
     def init_window_size(self):
         self.window_size = 1
