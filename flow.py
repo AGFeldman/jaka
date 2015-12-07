@@ -147,6 +147,10 @@ class Flow(object):
         unless a timeout happened within the past 0.5 seconds or rtte,
         then set the window size to 1
         '''
+        if self.protocol == 'FAST':
+            self.retransmit()
+            return
+
         if self.fast_recovery:
             self.exit_fast_recovery()
 
@@ -205,6 +209,9 @@ class Flow(object):
 
     # TODO(jg): remove this; we no longer grow window size like this
     # Keeping this here because may use for FAST-TCP periodic window updates
+    # TODO(agf): Is this the best way to update window size in FAST-TCP?
+    # Would we want window size to be updated every time there is a change
+    # to RTT estimate?
     def start_growing_window_size(self):
         # Window size grows by 1 every round-trip-time estimate
         # TODO(agf): If round-trip-time estimate drops sharply, window size
