@@ -250,10 +250,6 @@ class Flow(object):
         packet = self.packets_to_send[packet_id]
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
-        # set new timeout times
-        # for id_ in self.packets_waiting_for_acks.keys():
-        #     self.reset_timeout(self.packets_to_send[id_])
-
         globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
 
     def enter_fast_recovery(self):
@@ -331,46 +327,6 @@ class Flow(object):
 
         # del self.packets_waiting_for_acks[packet.id_]
         self.update_packets_waiting_for_ack(packet.next_expected)
-
-    def reset_timeout(self, packet):
-        assert isinstance(packet, DataPacket)
-        # DEBUG(jg)
-        globals_.event_manager.log(
-            'WINDOW resetting timeout pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
-                packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
-        # ENDEBUG
-        self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
-        def ack_is_due():
-            # This packet could have been resent after this timeout event was created;
-            # in that case, this timeout event is now invalid (real timeout should be later)
-            if packet.timeout != globals_.event_manager.get_time():
-                # TODO(jg): log this
-                return
-            if packet.id_ in self.packets_waiting_for_acks:
-                globals_.event_manager.log(
-                        '{} is due to receive an ack for {}, has not received it'.format(
-                            self.id_, packet.id_))
-                self.rtte.update_missed_ack()
-
-                # We no longer use the packets_to_send as a queue
-                # self.packets_to_send.insert(0, packet)
-
-                # Remove from list of packets waiting for acks
-                # This might be necessary to enable more sends, since sends can
-                # only occur when #waiting_for_acks < window_size
-                del self.packets_waiting_for_acks[packet.id_]
-                # DEBUG(jg)
-                globals_.event_manager.log('WINDOW timeout on pkt_id={}'.format(packet.id_))
-                # ENDEBUG
-                self.update_window_size_missed_ack()
-                # self.retransmit()
-            else:
-                globals_.event_manager.log(
-                        '{} is due to receive an ack for {}, has already received it'.format(
-                            self.id_, packet.id_))
-        # Wait 3 times the round-trip-time-estimate
-        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
-        globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
 
     def send_packet(self, packet):
         assert isinstance(packet, DataPacket)
