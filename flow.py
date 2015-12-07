@@ -37,7 +37,7 @@ class RTTE(float):
         # self.stored_rtts[self.ndatapoints % self.base_calc_range] = rtt
         # self.basertt = min(self.stored_rtts)
         self.basertt = min((self.basertt, rtt))
-        
+
     def update_rtt_datapoint(self, rtt):
         self.ndatapoints += 1
         if self.ndatapoints == 1:
@@ -222,11 +222,13 @@ class Flow(object):
             old_window_float = self.window_size_float
             # ENDEBUG(jg)
             if (self.congestion_avoidance):
-                self.window_size_float = ((self.rtte.basertt / self.rtte.estimate) * self.window_size_float + self.alpha)
+                self.window_size_float = ((self.rtte.basertt / self.rtte.estimate)
+                                          * self.window_size_float + self.alpha)
                 self.set_window_size(int(self.window_size_float // 1))
                 # DEBUG(jg)
                 globals_.event_manager.log(
-                    'WINDOW  TCP_FAST growth, base={}, est={}, base/est={}, old_wf={}, new_wf={},        old_w={}, new_w={}'
+                    ('WINDOW  TCP_FAST growth, base={}, est={},'
+                     + 'base/est={}, old_wf={}, new_wf={},        old_w={}, new_w={}')
                     .format(self.rtte.basertt, self.rtte.estimate,
                             self.rtte.basertt / self.rtte.estimate,
                             old_window_float, self.window_size_float,
