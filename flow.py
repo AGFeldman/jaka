@@ -147,10 +147,6 @@ class Flow(object):
         unless a timeout happened within the past 0.5 seconds or rtte,
         then set the window size to 1
         '''
-        if self.protocol == 'FAST':
-            self.retransmit()
-            return
-
         if self.fast_recovery:
             self.exit_fast_recovery()
 
@@ -165,7 +161,9 @@ class Flow(object):
                 'WINDOW timed out, setting w:=1 ssthresh:={}'.format(new_size))
             # ENDEBUG
             self.ssthresh = new_size
-            self.set_window_size(1)
+            # TCP-FAST doesn't cut window size upon missed ack
+            if self.protocol == 'RENO':
+                self.set_window_size(1)
 
         self.retransmit()
 
