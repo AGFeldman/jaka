@@ -32,6 +32,9 @@ class RTTE(float):
             # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
             # this formula for updating means
             self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
+            # DEBUG(jg)
+            globals_.event_manager.log('WINDOW update rtte to {}'.format(self.estimate))
+            # ENDEBUG
         # We no longer need to perform updates when acks are missed
         self.update_missed_ack = self.no_op
 
@@ -141,7 +144,7 @@ class Flow(object):
         self.packets_waiting_for_acks = dict()
         # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW retransmitting all in txwindow, w:=1 ssthresh:={}'.format(
+            'WINDOW retransmitting all in txwindow, w={} ssthresh:={}'.format(
                 self.window_size, self.ssthresh))
         # ENDEBUG
         assert self.transmit_window_start <= len(self.packets_to_send)
@@ -205,6 +208,7 @@ class Flow(object):
 
     def enter_fast_recovery(self):
         self.ssthresh = max((self.window_size // 2, 2))
+        self.set_window_size(self.ssthresh + self.ndups)
         # DEBUG(jg)
         globals_.event_manager.log(
             'WINDOW entering fast recovery w={} set ssthresh:={}'.format(
@@ -236,7 +240,7 @@ class Flow(object):
 
         # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW received ack pkt_id={}, next_expected={}, w:={} ssthresh={}'.format(
+            'WINDOW                  RECEIVED ack pkt_id={}, next_expected={}, w:={} ssthresh={}'.format(
                 packet.id_, packet.next_expected, self.window_size, self.ssthresh))
         # ENDEBUG
 
@@ -249,8 +253,9 @@ class Flow(object):
                 self.dup_id = packet.next_expected
 
             if self.ndups == 3 and packet.next_expected < len(self.packets_to_send):
-                self.fast_retransmit(packet.next_expected)
                 self.enter_fast_recovery()
+                #self.retransmit()
+                self.fast_retransmit(packet.next_expected)
 
             if self.fast_recovery and self.ndups < 3:
                 self.exit_fast_recovery()
@@ -314,7 +319,7 @@ class Flow(object):
         assert isinstance(packet, DataPacket)
         # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW sending pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
+            'WINDOW SENDING                pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
                 packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
         # ENDEBUG
         self.src_obj.send_packet(packet)
