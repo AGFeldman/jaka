@@ -202,8 +202,8 @@ class Flow(object):
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
         # set new timeout times
-        #for id_ in self.packets_waiting_for_acks.keys():
-        #    self.reset_timeout(self.packets_to_send[id_])
+        # for id_ in self.packets_waiting_for_acks.keys():
+        #     self.reset_timeout(self.packets_to_send[id_])
 
         globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
 
@@ -247,8 +247,8 @@ class Flow(object):
 
         # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW                  RECEIVED ack pkt_id={}, next_expected={}, w:={} ssthresh={}'.format(
-                packet.id_, packet.next_expected, self.window_size, self.ssthresh))
+            'WINDOW                  RECEIVED ack pkt_id={}, next_expected={}, w:={} ssthresh={}'
+            .format(packet.id_, packet.next_expected, self.window_size, self.ssthresh))
         # ENDEBUG
 
         # Update ndups
@@ -261,7 +261,7 @@ class Flow(object):
 
             if self.ndups == 3 and packet.next_expected < len(self.packets_to_send):
                 self.enter_fast_recovery()
-                #self.retransmit()
+                # self.retransmit()
                 self.fast_retransmit(packet.next_expected)
 
             if self.fast_recovery and self.ndups < 3:

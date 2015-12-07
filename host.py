@@ -48,7 +48,7 @@ class Host(Device):
             packet.flow.log_packet_received()
 
             prev_next_expected = packet.flow.next_expected
-            
+
             packet.flow.update_next_expected(packet.id_)
             # Send an ack immediately
             # TODO(agf): Do we really want to send acks immediately?
