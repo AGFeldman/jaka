@@ -32,6 +32,9 @@ class RTTE(float):
             # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
             # this formula for updating means
             self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
+            # DEBUG(jg)
+            globals_.event_manager.log('WINDOW update rtte to {}'.format(self.estimate))
+            # ENDEBUG
         # We no longer need to perform updates when acks are missed
         self.update_missed_ack = self.no_op
 
@@ -89,25 +92,95 @@ class Flow(object):
 
         self.time_of_last_window_reduction = float('-inf')
 
+        # Smallest sequence number that receiver hasn't received
+        self.next_expected = 0
+        self.packets_received_out_of_order = []
+
+        # Start of transmit window (earliest unacknowledged sequence number)
+        self.transmit_window_start = 0
+
+        # If we eventually do selective acknowledgements
+        # self.packets_ackd_out_of_order = []
+
+        # TCP States (affect how window is changed)
+        self.slow_start = True
+        self.congestion_avoidance = False
+        self.ssthresh = float('inf')
+
+        self.ndups = 0
+        self.dup_id = -1
+        self.fast_recovery = False
+        self.time_last_fr = -1
+
     def init_window_size(self):
         self.window_size = 1
+        self.window_size_float = float(1)
 
     def update_window_size_missed_ack(self):
         '''
-        Cut the window size in half, unless the window size was halved within
-        the previous 0.5 seconds
+        This is called when waiting to receive an ack for a sent packet times out
+        Set ssthresh to half of the current window size,
+        unless a timeout happened within the past 0.5 seconds or rtte,
+        then set the window size to 1
         '''
+        if self.fast_recovery:
+            self.exit_fast_recovery()
+
         time = globals_.event_manager.get_time()
-        if time - self.time_of_last_window_reduction > 0.5:
+        if time - self.time_of_last_window_reduction > max(0.5, self.rtte.estimate):
             self.time_of_last_window_reduction = time
-            new_size = (self.window_size // 2) + (self.window_size % 2)
+            new_size = max(((self.window_size // 2) + (self.window_size % 2), 1))
+            # print 'w={}, new_size={}'.format(self.window_size, new_size)
             assert new_size >= 1
-            self.set_window_size(new_size)
+            # DEBUG(jg)
+            globals_.event_manager.log(
+                'WINDOW timed out, setting w:=1 ssthresh:={}'.format(new_size))
+            # ENDEBUG
+            self.ssthresh = new_size
+            self.set_window_size(1)
+
+        self.retransmit()
+
+    def retransmit(self):
+        self.packets_waiting_for_acks = dict()
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW retransmitting all in txwindow, w={} ssthresh:={}'.format(
+                self.window_size, self.ssthresh))
+        # ENDEBUG
+        assert self.transmit_window_start <= len(self.packets_to_send)
+        if globals_.event_manager.get_time() > self.start \
+           and (self.transmit_window_start == len(self.packets_to_send)) \
+           and not self.packets_waiting_for_acks:
+            self.finished = True
+        elif self.transmit_window_start < len(self.packets_to_send):
+            end_range = min(self.transmit_window_start + self.window_size,
+                            len(self.packets_to_send))
+            for id_ in xrange(self.transmit_window_start, end_range):
+                packet = self.packets_to_send[id_]
+                self.send_packet(packet)
+                globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
 
     def set_window_size(self, size):
         self.window_size = size
+        self.adjust_state(size)
         globals_.stats_manager.notify(self.window_size_graph_tag, size)
 
+    def enter_congestion_avoidance(self):
+        globals_.event_manager.log('WINDOW entering CA, w = {}'.format(self.window_size))
+        self.slow_start = False
+        self.congestion_avoidance = True
+        self.window_size_float = self.window_size
+
+    def adjust_state(self, size):
+        if size < self.ssthresh:
+            self.slow_start = True
+            self.congestion_avoidance = False
+        elif (size >= self.ssthresh) and self.slow_start:
+            self.enter_congestion_avoidance()
+
+    # TODO(jg): remove this; we no longer grow window size like this
+    # Keeping this here because may use for FAST-TCP periodic window updates
     def start_growing_window_size(self):
         # Window size grows by 1 every round-trip-time estimate
         # TODO(agf): If round-trip-time estimate drops sharply, window size
@@ -119,9 +192,82 @@ class Flow(object):
             globals_.event_manager.add(self.rtte.estimate, grow)
         globals_.event_manager.add(self.rtte.estimate, grow)
 
+    def fast_retransmit(self, packet_id):
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW fast_retransmitting pkt_id={} w={} ssthresh={}'.format(
+                packet_id, self.window_size, self.ssthresh))
+        # ENDEBUG
+        packet = self.packets_to_send[packet_id]
+        assert isinstance(packet, DataPacket)
+        self.send_packet(packet)
+        # set new timeout times
+        # for id_ in self.packets_waiting_for_acks.keys():
+        #     self.reset_timeout(self.packets_to_send[id_])
+
+        globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
+
+    def enter_fast_recovery(self):
+        # Do not enter fr if did it recently
+        if globals_.event_manager.get_time() - self.time_last_fr \
+           < max(0.5, 3*self.rtte.estimate):
+            return
+
+        self.time_last_fr = globals_.event_manager.get_time()
+        self.ssthresh = max((self.window_size // 2, 2))
+        self.set_window_size(self.ssthresh + self.ndups)
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW entering fast recovery w={} set ssthresh:={}'.format(
+                self.window_size, self.ssthresh))
+        # ENDEBUG
+        self.fast_recovery = True
+
+    def exit_fast_recovery(self):
+        assert self.ssthresh != float('inf')
+        self.set_window_size(self.ssthresh)
+        self.window_size_float = float(self.window_size)
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW exiting fast recovery w:={} set ssthresh={}'.format(
+                self.window_size, self.ssthresh))
+        # ENDEBUG
+        self.ndups = 0
+        self.dup_id = -1
+        self.fast_recovery = False
+
+    def update_packets_waiting_for_ack(self, next_expected):
+        for id_ in self.packets_waiting_for_acks.keys():
+            if id_ < next_expected:
+                del self.packets_waiting_for_acks[id_]
+
     def receive_ack(self, packet):
         assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
+
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW                  RECEIVED ack pkt_id={}, next_expected={}, w:={} ssthresh={}'
+            .format(packet.id_, packet.next_expected, self.window_size, self.ssthresh))
+        # ENDEBUG
+
+        # Update ndups
+        if self.congestion_avoidance:
+            if packet.next_expected == self.dup_id:
+                self.ndups = self.ndups + 1
+            elif packet.next_expected > self.dup_id:
+                self.ndups = 1
+                self.dup_id = packet.next_expected
+
+            if self.ndups == 3 and packet.next_expected < len(self.packets_to_send):
+                self.enter_fast_recovery()
+                # self.retransmit()
+                self.fast_retransmit(packet.next_expected)
+
+            if self.fast_recovery and self.ndups < 3:
+                self.exit_fast_recovery()
+
+        self.update_transmit_window(packet.next_expected)
         if packet.id_ not in self.packets_waiting_for_acks:
             # This could happen if the ack comes too late
             globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
@@ -131,45 +277,123 @@ class Flow(object):
         assert packet.src == original_packet.dst and packet.dst == original_packet.src
         rtt = globals_.event_manager.get_time() - time_sent
         self.rtte.update_rtt_datapoint(rtt)
-        del self.packets_waiting_for_acks[packet.id_]
+
+        # del self.packets_waiting_for_acks[packet.id_]
+        self.update_packets_waiting_for_ack(packet.next_expected)
         globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
-    def send_packet(self, packet):
+    def reset_timeout(self, packet):
         assert isinstance(packet, DataPacket)
-        self.src_obj.send_packet(packet)
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW resetting timeout pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
+                packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
+        # ENDEBUG
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
+            # This packet could have been resent after this timeout event was created;
+            # in that case, this timeout event is now invalid (real timeout should be later)
+            if packet.timeout != globals_.event_manager.get_time():
+                # TODO(jg): log this
+                return
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has not received it'.format(
                             self.id_, packet.id_))
                 self.rtte.update_missed_ack()
-                self.packets_to_send.insert(0, packet)
+
+                # We no longer use the packets_to_send as a queue
+                # self.packets_to_send.insert(0, packet)
+
                 # Remove from list of packets waiting for acks
                 # This might be necessary to enable more sends, since sends can
                 # only occur when #waiting_for_acks < window_size
                 del self.packets_waiting_for_acks[packet.id_]
+                # DEBUG(jg)
+                globals_.event_manager.log('WINDOW timeout on pkt_id={}'.format(packet.id_))
+                # ENDEBUG
                 self.update_window_size_missed_ack()
+                # self.retransmit()
             else:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
         # Wait 3 times the round-trip-time-estimate
+        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
+        globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
+
+    def send_packet(self, packet):
+        assert isinstance(packet, DataPacket)
+        # DEBUG(jg)
+        globals_.event_manager.log(
+            'WINDOW SENDING                pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
+                packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
+        # ENDEBUG
+        self.src_obj.send_packet(packet)
+        self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
+        def ack_is_due():
+            # This packet could have been resent after this timeout event was created;
+            # in that case, this timeout event is now invalid (real timeout should be later)
+            if packet.timeout != globals_.event_manager.get_time():
+                # TODO(jg): log this
+                return
+            if packet.id_ in self.packets_waiting_for_acks:
+                globals_.event_manager.log(
+                        '{} is due to receive an ack for {}, has not received it'.format(
+                            self.id_, packet.id_))
+                self.rtte.update_missed_ack()
+
+                # We no longer use the packets_to_send as a queue
+                # self.packets_to_send.insert(0, packet)
+
+                # Remove from list of packets waiting for acks
+                # This might be necessary to enable more sends, since sends can
+                # only occur when #waiting_for_acks < window_size
+                del self.packets_waiting_for_acks[packet.id_]
+                # DEBUG(jg)
+                globals_.event_manager.log('WINDOW timeout on pkt_id={}'.format(packet.id_))
+                # ENDEBUG
+                self.update_window_size_missed_ack()
+                # self.retransmit()
+            else:
+                globals_.event_manager.log(
+                        '{} is due to receive an ack for {}, has already received it'.format(
+                            self.id_, packet.id_))
+        # Wait 3 times the round-trip-time-estimate
+        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
         globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
 
     def act(self):
-        if not self.packets_to_send:
-            if not self.packets_waiting_for_acks and globals_.event_manager.get_time() > self.start:
-                self.finished = True
+        acted = False
+        assert self.transmit_window_start <= len(self.packets_to_send)
+        if globals_.event_manager.get_time() > self.start \
+           and (self.transmit_window_start == len(self.packets_to_send)) \
+           and not self.packets_waiting_for_acks:
+            self.finished = True
             return False
-        n_waiting_for_acks = len(self.packets_waiting_for_acks)
-        if n_waiting_for_acks >= self.window_size:
-            return False
-        for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
-            packet = self.packets_to_send.pop(0)
-            self.send_packet(packet)
-            globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
-        return True
+        elif self.transmit_window_start < len(self.packets_to_send):
+            end_range = min(self.transmit_window_start + self.window_size,
+                            len(self.packets_to_send))
+            for id_ in xrange(self.transmit_window_start, end_range):
+                if id_ not in self.packets_waiting_for_acks:
+                    packet = self.packets_to_send[id_]
+                    self.send_packet(packet)
+                    globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
+                    acted = True
+        return acted
+        # if not self.packets_to_send:
+        #     if not self.packets_waiting_for_acks \
+        #        and globals_.event_manager.get_time() > self.start:
+        #         self.finished = True
+        #     return False
+        # n_waiting_for_acks = len(self.packets_waiting_for_acks)
+        # if n_waiting_for_acks >= self.window_size:
+        #     return False
+        # for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
+        #     packet = self.packets_to_send.pop(0)
+        #     self.send_packet(packet)
+        #     globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
+        # return True
 
     def generate_packets_to_send(self):
         '''
@@ -187,7 +411,8 @@ class Flow(object):
     def register_with_event_manager(self):
         def setup():
             self.generate_packets_to_send()
-            self.start_growing_window_size()
+            # TODO(jg): remove this; we no longer grow window size like this
+            # self.start_growing_window_size()
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
@@ -196,3 +421,55 @@ class Flow(object):
                                       self.num_packets_received)
         globals_.stats_manager.notify(self.rate_packets_received_graph_tag,
                                       self.num_packets_received)
+
+    def update_next_expected(self, packet_id):
+        if packet_id == self.next_expected:
+            self.next_expected += 1
+            while self.next_expected in self.packets_received_out_of_order:
+                self.packets_received_out_of_order.remove(self.next_expected)
+                self.next_expected += 1
+        elif packet_id not in self.packets_received_out_of_order and packet_id > self.next_expected:
+            self.packets_received_out_of_order.append(packet_id)
+
+    # # This would be useful if we do selective acknowledgements
+    # def update_transmit_window(self, packet_id):
+    #     if packet_id == self.transmit_window_start:
+    #         self.transmit_window_start += 1
+    #         while self.transmit_window_start in self.packets_ackd_out_of_order:
+    #             self.packets_ackd_out_of_order.remove(self.transmit_window_start)
+    #             self.transmit_window_start += 1
+    #     elif packet_id not in self.packets_ackd_out_of_order \
+    #          and packet_id > self.transmit_window_start:
+    #         self.packets_ackd_out_of_order.append(packet_id)
+
+    def update_transmit_window(self, ack_next_expected):
+        if self.fast_recovery:
+            if ack_next_expected > self.transmit_window_start:
+                self.transmit_window_start = ack_next_expected
+
+            self.set_window_size(self.ssthresh + self.ndups)
+            # DEBUG(jg)
+            globals_.event_manager.log(
+                'WINDOW: updating window in FAST_RECOVERY, ndup={}, w:={}, ssthresh={}'.format(
+                    self.ndups, self.window_size, self.ssthresh))
+            # ENDEBUG(jg)
+        elif ack_next_expected > self.transmit_window_start:
+            self.transmit_window_start = ack_next_expected
+            # If in slow start mode, increment window on successful ack
+            # This results in window doubling every RTT
+            if self.slow_start:
+                self.set_window_size(self.window_size + 1)
+                # DEBUG(jg)
+                globals_.event_manager.log(
+                    'WINDOW: updating window in SLOW_START w = w + 1, w:={}, ssthresh={}'.format(
+                        self.window_size, self.ssthresh))
+                # ENDEBUG(jg)
+            elif self.congestion_avoidance:
+                self.window_size_float += 1.0 / self.window_size_float
+                self.set_window_size(int(self.window_size_float // 1))
+                # DEBUG(jg)
+                globals_.event_manager.log(
+                    'WINDOW: updating window in CONGESTION_AVOIDANCE w = w + 1/w'
+                    + ', w:={}, ssthresh={}'.format(
+                        self.window_size, self.ssthresh))
+                # ENDEBUG(jg)
