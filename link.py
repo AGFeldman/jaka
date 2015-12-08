@@ -100,13 +100,17 @@ class Link(object):
         self.cost_measurements = []
 
         self.data_sent_graph_tag = globals_.stats_manager.new_graph(
-                title='Total Bits Sent Over {}'.format(self.id_),
-                ylabel='Bits'
+                title='Total Bits Sent Over Links',
+                ylabel='Bits',
+                graph_id='link_total_bits_sent_over',
+                dataset_label=self.id_
         )
         self.rate_data_sent_graph_tag = globals_.stats_manager.new_graph(
-                title='Rate of Sending Data Over {}'.format(self.id_),
+                title='Rate of Sending Data Over Links',
                 ylabel='Rate (bits/second)',
-                is_rate=True
+                is_rate=True,
+                graph_id='link_rate_of_sending_data_over',
+                dataset_label=self.id_
         )
         self.total_data_sent = 0
 
