@@ -26,6 +26,7 @@ class RTTE(object):
     def __init__(self, flow):
         self.flow = flow
         self.estimate_with_no_data = globals_.INITIAL_RTT_ESTIMATE
+        self.min_rtt_observed = None
         self.data = []
 
     def get_estimate(self):
@@ -38,10 +39,9 @@ class RTTE(object):
         Return a number that roughly corresponds to the smallest amount of time
         that we expect a round trip to take
         '''
-        # TODO(agf): Should this return the min *ever* observed?
-        if not self.data:
+        if self.min_rtt_observed is None:
             return globals_.INITIAL_RTT_ESTIMATE
-        return min((obs.value for obs in self.data if not obs.is_synthetic))
+        return self.min_rtt_observed
 
     def __get_max(self):
         if not self.data:
@@ -68,6 +68,10 @@ class RTTE(object):
 
     def update_rtt_datapoint(self, rtt_value):
         self.__add_data_point(RTTObservation(rtt_value, is_synthetic=False))
+        if self.min_rtt_observed is None:
+            self.min_rtt_observed = rtt_value
+        else:
+            self.min_rtt_observed = min((self.min_rtt_observed, rtt_value))
 
 
 class Flow(object):
