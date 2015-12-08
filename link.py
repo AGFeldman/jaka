@@ -180,7 +180,7 @@ class Link(object):
         current_time = globals_.event_manager.get_time()
         if not self.cost_measurements or self.cost_measurements[-1][0] != current_time:
             cost_measurement = (self.endpoint1.get_buffer_occupancy_percentage() +
-                                self.endpoint2.get_buffer_occupancy_percentage()) / 2
+                                self.endpoint2.get_buffer_occupancy_percentage()) / self.rate
             self.cost_measurements.append((current_time, cost_measurement))
 
     def get_cost(self):
