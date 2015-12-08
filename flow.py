@@ -5,19 +5,6 @@ import globals_
 from packet import DataPacket, AckPacket
 
 
-class RTTObservation(object):
-    def __init__(self, value, is_synthetic=False):
-        '''
-        value should be a float
-        is_synthetic should be a bool. If the RTT observation is made after
-        receiving an ack, then is_synthetic should be false. If the RTT
-        "observation" is made after an ack is missed, then is_synthetic should
-        be true.
-        '''
-        self.value = float(value)
-        self.is_synthetic = is_synthetic
-
-
 class RTTE(object):
     '''
     Keep a Round Trip Time estimate
@@ -25,14 +12,31 @@ class RTTE(object):
     '''
     def __init__(self, flow):
         self.flow = flow
-        self.estimate_with_no_data = globals_.INITIAL_RTT_ESTIMATE
+        self.max_num_data_points = globals_.NUM_OBSERVATIONS_FOR_RTTE
+        if self.flow.protocol == 'FAST':
+            # There is no set maximum number of data points, but TCP-FAST will
+            # call RTTE.reset() after updating its window size
+            self.max_num_data_points = float('inf')
         self.min_rtt_observed = None
+        self.max_rtt_observed = None
+        self.reset()
+
+    def reset(self):
+        self.estimate_with_no_data = globals_.INITIAL_RTT_ESTIMATE
         self.data = []
+        if self.flow.protocol == 'FAST':
+            self.n_missed_acks = 0
 
     def get_estimate(self):
         if not self.data:
             return self.estimate_with_no_data
-        return sum((obs.value for obs in self.data)) / len(self.data)
+        n_observations = len(self.data)
+        sum_of_observations = sum((rtt for rtt in self.data))
+        if self.flow.protocol == 'FAST':
+            n_observations += self.n_missed_acks
+            sum_of_observations += (self.n_missed_acks * globals_.MISSED_ACK_RTT_FACTOR *
+                                    self.get_max())
+        return sum_of_observations / n_observations
 
     def get_base(self):
         '''
@@ -43,38 +47,36 @@ class RTTE(object):
             return globals_.INITIAL_RTT_ESTIMATE
         return self.min_rtt_observed
 
-    def __get_max(self):
-        if not self.data:
-            return self.estimate_with_no_data
-        # TODO(agf): We should be careful because this could be the max of an
-        # empty list.  However, this will probably be changed in a future
-        # commit anyway.
-        return max((obs.value for obs in self.data if not obs.is_synthetic))
+    def get_max(self):
+        if self.max_rtt_observed is None:
+            return globals_.INITIAL_RTT_ESTIMATE
+        return self.max_rtt_observed
 
     def log_rtte(self):
         globals_.event_manager.log('{} RTT estimate is {}'.format(self.flow.id_,
                                                                   self.get_estimate()))
 
-    def __add_data_point(self, rtt_observation):
-        self.data.append(rtt_observation)
-        if len(self.data) > globals_.NUM_OBSERVATIONS_FOR_RTTE:
-            del self.data[0]
-
     def update_missed_ack(self):
         if not self.data:
             self.estimate_with_no_data += globals_.INITIAL_RTT_ESTIMATE
-        elif self.flow.protocol == 'FAST':
-            # Cause the RTT estimate to update as if we observed a round trip
-            # time of 1.2 * self.maxrtt.  This does not necessarily make our
-            # RTT estimate more accurate. It is just part of TCP-FAST.
-            self.__add_data_point(RTTObservation(1.2 * self.__get_max(), is_synthetic=True))
+        if self.flow.protocol == 'FAST':
+            self.n_missed_acks += 1
 
     def update_rtt_datapoint(self, rtt_value):
-        self.__add_data_point(RTTObservation(rtt_value, is_synthetic=False))
+        # Add the data point to self.data
+        self.data.append(rtt_value)
+        if len(self.data) > self.max_num_data_points:
+            del self.data[0]
+        # Update self.min_rtt_observed
         if self.min_rtt_observed is None:
             self.min_rtt_observed = rtt_value
         else:
             self.min_rtt_observed = min((self.min_rtt_observed, rtt_value))
+        # Update self.max_rtt_observed
+        if self.max_rtt_observed is None:
+            self.max_rtt_observed = rtt_value
+        else:
+            self.max_rtt_observed = max((self.max_rtt_observed, rtt_value))
 
 
 class Flow(object):
@@ -230,6 +232,7 @@ class Flow(object):
                 self.set_window_size(int(self.window_size_float // 1))
                 globals_.event_manager.log('{} window size is now {}'.format(
                     self.id_, self.window_size))
+            self.rtte.reset()
             globals_.event_manager.add(0.050, beat)
         globals_.event_manager.add(0.050, beat)
 
