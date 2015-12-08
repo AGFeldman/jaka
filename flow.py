@@ -46,6 +46,9 @@ class RTTE(object):
     def __get_max(self):
         if not self.data:
             return self.estimate_with_no_data
+        # TODO(agf): We should be careful because this could be the max of an
+        # empty list.  However, this will probably be changed in a future
+        # commit anyway.
         return max((obs.value for obs in self.data if not obs.is_synthetic))
 
     def log_rtte(self):
@@ -59,7 +62,7 @@ class RTTE(object):
 
     def update_missed_ack(self):
         if not self.data:
-            self.estimate += globals_.INITIAL_RTT_ESTIMATE
+            self.estimate_with_no_data += globals_.INITIAL_RTT_ESTIMATE
         elif self.flow.protocol == 'FAST':
             # Cause the RTT estimate to update as if we observed a round trip
             # time of 1.2 * self.maxrtt.  This does not necessarily make our
