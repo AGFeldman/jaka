@@ -1,5 +1,6 @@
 import random
 import heapq
+import signal
 
 
 class EventManager(object):
@@ -54,6 +55,14 @@ class EventManager(object):
                 actor.register_with_event_manager()
 
         self.flows = network.get_flows()
+
+        # Handle SIGINT / when the user presses control-C by stopping the
+        # simulation, but not exiting. This allows us to still output graphs.
+        def sigint_handler(signal, frame):
+            self.log("Received SIGINT, stopping simulation")
+            for flow in self.flows:
+                flow.finished = True
+        signal.signal(signal.SIGINT, sigint_handler)
 
     def get_time(self):
         return self.time
