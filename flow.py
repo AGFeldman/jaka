@@ -5,51 +5,69 @@ import globals_
 from packet import DataPacket, AckPacket
 
 
+class RTTObservation(object):
+    def __init__(self, value, is_synthetic=False):
+        '''
+        value should be a float
+        is_synthetic should be a bool. If the RTT observation is made after
+        receiving an ack, then is_synthetic should be false. If the RTT
+        "observation" is made after an ack is missed, then is_synthetic should
+        be true.
+        '''
+        self.value = float(value)
+        self.is_synthetic = is_synthetic
+
+
 class RTTE(object):
     '''
     Keep a Round Trip Time estimate
     This class should only be used with `from __future__ import division`
-    Public members:
-        self.estimate
     '''
     def __init__(self, flow):
         self.flow = flow
-        # Initial estimate is 100 ms
-        self.estimate = globals_.INITIAL_RTT_ESTIMATE
-        # The smallest round trip time observed
-        self.basertt = self.estimate
-        # The largest round trip time observed
-        self.maxrtt = self.estimate
-        self.ndatapoints = 0
+        self.estimate_with_no_data = globals_.INITIAL_RTT_ESTIMATE
+        self.data = []
+
+    def get_estimate(self):
+        if not self.data:
+            return self.estimate_with_no_data
+        return sum((obs.value for obs in self.data)) / len(self.data)
+
+    def get_base(self):
+        '''
+        Return a number that roughly corresponds to the smallest amount of time
+        that we expect a round trip to take
+        '''
+        # TODO(agf): Should this return the min *ever* observed?
+        if not self.data:
+            return globals_.INITIAL_RTT_ESTIMATE
+        return min((obs.value for obs in self.data if not obs.is_synthetic))
+
+    def __get_max(self):
+        if not self.data:
+            return self.estimate_with_no_data
+        return max((obs.value for obs in self.data if not obs.is_synthetic))
 
     def log_rtte(self):
-        globals_.event_manager.log('{} RTT estimate is {}'.format(self.flow.id_, self.estimate))
+        globals_.event_manager.log('{} RTT estimate is {}'.format(self.flow.id_,
+                                                                  self.get_estimate()))
+
+    def __add_data_point(self, rtt_observation):
+        self.data.append(rtt_observation)
+        if len(self.data) > globals_.NUM_OBSERVATIONS_FOR_RTTE:
+            del self.data[0]
 
     def update_missed_ack(self):
-        if self.ndatapoints == 0:
+        if not self.data:
             self.estimate += globals_.INITIAL_RTT_ESTIMATE
-            self.maxrtt = self.estimate
         elif self.flow.protocol == 'FAST':
-            self.ndatapoints += 1
-            # Update the RTT estimate as if we observed a round trip time of 1.2 * self.maxrtt
-            # This does not necessarily make our RTT estimate more accurate. It is just part of
-            # TCP-FAST.
-            # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
-            # this formula for updating means
-            self.estimate = self.estimate + (1.2 * self.maxrtt - self.estimate) / self.ndatapoints
-        self.log_rtte()
+            # Cause the RTT estimate to update as if we observed a round trip
+            # time of 1.2 * self.maxrtt.  This does not necessarily make our
+            # RTT estimate more accurate. It is just part of TCP-FAST.
+            self.__add_data_point(RTTObservation(1.2 * self.__get_max(), is_synthetic=True))
 
-    def update_rtt_datapoint(self, rtt):
-        self.ndatapoints += 1
-        if self.ndatapoints == 1:
-            self.estimate = rtt
-            self.basertt = self.estimate
-            self.maxrtt = self.estimate
-        else:
-            self.basertt = min((self.basertt, rtt))
-            self.maxrtt = max((self.maxrtt, rtt))
-            self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
-        self.log_rtte()
+    def update_rtt_datapoint(self, rtt_value):
+        self.__add_data_point(RTTObservation(rtt_value, is_synthetic=False))
 
 
 class Flow(object):
@@ -148,7 +166,7 @@ class Flow(object):
             self.exit_fast_recovery()
 
         time = globals_.event_manager.get_time()
-        if time - self.time_of_last_window_reduction > max(0.5, self.rtte.estimate):
+        if time - self.time_of_last_window_reduction > max(0.5, self.rtte.get_estimate()):
             self.time_of_last_window_reduction = time
             self.ssthresh = max(((self.window_size // 2) + (self.window_size % 2), 1))
             # TCP-FAST doesn't cut window size upon missed ack
@@ -206,7 +224,7 @@ class Flow(object):
         assert self.protocol == 'FAST'
         def beat():
             if (self.congestion_avoidance):
-                self.window_size_float = ((self.rtte.basertt / self.rtte.estimate)
+                self.window_size_float = ((self.rtte.get_base() / self.rtte.get_estimate())
                                           * self.window_size_float + self.alpha)
                 self.set_window_size(int(self.window_size_float // 1))
                 globals_.event_manager.log('{} window size is now {}'.format(
@@ -227,8 +245,8 @@ class Flow(object):
 
     def enter_fast_recovery(self):
         # Do not enter fr if did it recently
-        if globals_.event_manager.get_time() - self.time_last_fr \
-           < max(0.5, 3*self.rtte.estimate):
+        if (globals_.event_manager.get_time() - self.time_last_fr <
+                max(0.5, 3 * self.rtte.get_estimate())):
             return
 
         self.time_last_fr = globals_.event_manager.get_time()
@@ -326,8 +344,9 @@ class Flow(object):
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
         # Wait 3 times the round-trip-time-estimate
-        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
-        globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
+        wait_time = 3 * self.rtte.get_estimate()
+        packet.timeout = globals_.event_manager.get_time() + wait_time
+        globals_.event_manager.add(wait_time, ack_is_due)
 
     def act(self):
         acted = False
