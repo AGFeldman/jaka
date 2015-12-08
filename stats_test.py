@@ -8,8 +8,8 @@ from stats_manager import StatsManager
 
 def main_setup():
     random.seed(0)
-    globals_.event_manager = EventManager()
-    globals_.stats_manager = StatsManager()
+    globals_.event_manager = EventManager(None)
+    globals_.stats_manager = StatsManager('output')
 
 if __name__ == '__main__':
     global val
@@ -33,4 +33,4 @@ if __name__ == '__main__':
             globals_.event_manager.add(time_step, gen_data)
     globals_.event_manager.add(0, gen_data)
     globals_.event_manager.run()
-    globals_.stats_manager.output_graphs(display=True)
+    globals_.stats_manager.output_graphs()

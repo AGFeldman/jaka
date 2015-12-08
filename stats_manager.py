@@ -22,6 +22,8 @@ class StatsManager(object):
         self.tag_count = 0
         if output_name is not None:
             self.pdfpages = PdfPages(output_name + '.pdf')
+        else:
+            self.pdfpages = None
 
     def new_graph(self, **kwargs):
         '''
@@ -50,6 +52,9 @@ class StatsManager(object):
         Outputs all of the graphs from the generated
         data
         '''
+        if self.pdfpages is None:
+            return
+
         for tag, graph in self.graphs.iteritems():
             graph.draw()
             self.pdfpages.savefig()
