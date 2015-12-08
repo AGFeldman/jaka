@@ -5,55 +5,51 @@ import globals_
 from packet import DataPacket, AckPacket
 
 
-class RTTE(float):
+class RTTE(object):
     '''
     Keep a Round Trip Time estimate
     This class should only be used with `from __future__ import division`
     Public members:
         self.estimate
     '''
-    def __init__(self):
+    def __init__(self, flow):
+        self.flow = flow
         # Initial estimate is 100 ms
         self.estimate = globals_.INITIAL_RTT_ESTIMATE
+        # The smallest round trip time observed
         self.basertt = self.estimate
+        # The largest round trip time observed
+        self.maxrtt = self.estimate
         self.ndatapoints = 0
 
-        # TODO(jg): remove
-        # Basertt is calculated as min of the last base_calc_range rtts
-        # self.base_calc_range = 10
-        # self.stored_rtts = []
-        # for i in xrange(self.base_calc_range):
-        #     self.stored_rtts.append(self.estimate)
+    def log_rtte(self):
+        globals_.event_manager.log('{} RTT estimate is {}'.format(self.flow.id_, self.estimate))
 
     def update_missed_ack(self):
         if self.ndatapoints == 0:
             self.estimate += globals_.INITIAL_RTT_ESTIMATE
-
-    def no_op(self):
-        pass
-
-    def update_basertt(self, rtt):
-        # TODO(jg): remove/decide if use (basertt is min of last X rtts)
-        # self.stored_rtts[self.ndatapoints % self.base_calc_range] = rtt
-        # self.basertt = min(self.stored_rtts)
-        self.basertt = min((self.basertt, rtt))
+            self.maxrtt = self.estimate
+        elif self.flow.protocol == 'FAST':
+            self.ndatapoints += 1
+            # Update the RTT estimate as if we observed a round trip time of 1.2 * self.maxrtt
+            # This does not necessarily make our RTT estimate more accurate. It is just part of
+            # TCP-FAST.
+            # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
+            # this formula for updating means
+            self.estimate = self.estimate + (1.2 * self.maxrtt - self.estimate) / self.ndatapoints
+        self.log_rtte()
 
     def update_rtt_datapoint(self, rtt):
         self.ndatapoints += 1
         if self.ndatapoints == 1:
             self.estimate = rtt
             self.basertt = self.estimate
+            self.maxrtt = self.estimate
         else:
-            # See https://www.stat.wisc.edu/~larget/math496/mean-var.html for
-            # this formula for updating means
+            self.basertt = min((self.basertt, rtt))
+            self.maxrtt = max((self.maxrtt, rtt))
             self.estimate = self.estimate + (rtt - self.estimate) / self.ndatapoints
-            # DEBUG(jg)
-            globals_.event_manager.log('WINDOW update rtte to {}'.format(self.estimate))
-            # ENDEBUG
-            # Update basertt
-            self.update_basertt(rtt)
-        # We no longer need to perform updates when acks are missed
-        self.update_missed_ack = self.no_op
+        self.log_rtte()
 
 
 class Flow(object):
@@ -81,7 +77,7 @@ class Flow(object):
         self.init_window_size()
 
         # Round trip time estimate
-        self.rtte = RTTE()
+        self.rtte = RTTE(self)
 
         self.packets_to_send = []
         # packets_waiting_for_acks is a map from packet_id -> (packet_obj, time_packet_was_sent)
@@ -165,7 +161,9 @@ class Flow(object):
                 'WINDOW timed out, setting w:=1 ssthresh:={}'.format(new_size))
             # ENDEBUG
             self.ssthresh = new_size
-            self.set_window_size(1)
+            # TCP-FAST doesn't cut window size upon missed ack
+            if self.protocol == 'RENO':
+                self.set_window_size(1)
 
         self.retransmit()
 
@@ -209,6 +207,9 @@ class Flow(object):
 
     # TODO(jg): remove this; we no longer grow window size like this
     # Keeping this here because may use for FAST-TCP periodic window updates
+    # TODO(agf): Is this the best way to update window size in FAST-TCP?
+    # Would we want window size to be updated every time there is a change
+    # to RTT estimate?
     def start_growing_window_size(self):
         # Window size grows by 1 every round-trip-time estimate
         # TODO(agf): If round-trip-time estimate drops sharply, window size
@@ -250,10 +251,6 @@ class Flow(object):
         packet = self.packets_to_send[packet_id]
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
-        # set new timeout times
-        # for id_ in self.packets_waiting_for_acks.keys():
-        #     self.reset_timeout(self.packets_to_send[id_])
-
         globals_.event_manager.log('{} fast retransmitted packet {}'.format(self.id_, packet))
 
     def enter_fast_recovery(self):
@@ -331,46 +328,6 @@ class Flow(object):
 
         # del self.packets_waiting_for_acks[packet.id_]
         self.update_packets_waiting_for_ack(packet.next_expected)
-
-    def reset_timeout(self, packet):
-        assert isinstance(packet, DataPacket)
-        # DEBUG(jg)
-        globals_.event_manager.log(
-            'WINDOW resetting timeout pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
-                packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
-        # ENDEBUG
-        self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
-        def ack_is_due():
-            # This packet could have been resent after this timeout event was created;
-            # in that case, this timeout event is now invalid (real timeout should be later)
-            if packet.timeout != globals_.event_manager.get_time():
-                # TODO(jg): log this
-                return
-            if packet.id_ in self.packets_waiting_for_acks:
-                globals_.event_manager.log(
-                        '{} is due to receive an ack for {}, has not received it'.format(
-                            self.id_, packet.id_))
-                self.rtte.update_missed_ack()
-
-                # We no longer use the packets_to_send as a queue
-                # self.packets_to_send.insert(0, packet)
-
-                # Remove from list of packets waiting for acks
-                # This might be necessary to enable more sends, since sends can
-                # only occur when #waiting_for_acks < window_size
-                del self.packets_waiting_for_acks[packet.id_]
-                # DEBUG(jg)
-                globals_.event_manager.log('WINDOW timeout on pkt_id={}'.format(packet.id_))
-                # ENDEBUG
-                self.update_window_size_missed_ack()
-                # self.retransmit()
-            else:
-                globals_.event_manager.log(
-                        '{} is due to receive an ack for {}, has already received it'.format(
-                            self.id_, packet.id_))
-        # Wait 3 times the round-trip-time-estimate
-        packet.timeout = globals_.event_manager.get_time() + 3 * self.rtte.estimate
-        globals_.event_manager.add(3 * self.rtte.estimate, ack_is_due)
 
     def send_packet(self, packet):
         assert isinstance(packet, DataPacket)
