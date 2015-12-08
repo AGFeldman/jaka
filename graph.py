@@ -12,15 +12,10 @@ class Dataset(object):
     Stores one of the datasets for a graph.
     '''
 
-    def __init__(self,
-                 is_rate=False,
-                 sliding_window_width=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_WIDTH,
-                 sliding_window_step=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_STEP):
-        self.is_rate = is_rate
-        self.sliding_window_width = sliding_window_width
-        self.sliding_window_step = sliding_window_step
+    def __init__(self, label=None):
         self.times = []
         self.values = []
+        self.label = label
 
     def get_rate_data(self):
         beginning_of_sliding_window_index = 0
@@ -65,9 +60,11 @@ class Dataset(object):
         self.times.append(time)
         self.values.append(value)
 
-    def get_data(self):
+    def get_data(self, is_rate, sliding_window_width, sliding_window_step):
+        self.sliding_window_width = sliding_window_width
+        self.sliding_window_step = sliding_window_step
         # Returns tuple of times, graphable_values
-        if self.is_rate:
+        if is_rate:
             if not self.times:
                 return [], []
             times, values = self.get_rate_data()
@@ -100,9 +97,9 @@ class Graph(object):
         self.sliding_window_width = sliding_window_width
         self.sliding_window_step = sliding_window_step
         self.datasets = []
-        self.datasets.append(Dataset(is_rate, sliding_window_width, sliding_window_step))
-        self.times = []
-        self.values = []
+
+    def add_dataset(self, dataset):
+        self.datasets.append(dataset)
 
     def draw(self):
         fig = plt.figure()
@@ -112,9 +109,17 @@ class Graph(object):
         if self.ylabel:
             ax.set_ylabel(self.ylabel)
         ax.set_xlabel('Time (s)')
-        ts, vs = self.datasets[0].get_data()
-        if ts:
-            ax.plot(ts, vs)
+        has_labels = False
 
-    def append(self, time, value):
-        self.datasets[0].append(time, value)
+        for ds in self.datasets:
+            ts, vs = ds.get_data(self.is_rate,
+                                 self.sliding_window_width,
+                                 self.sliding_window_step)
+            if ts:
+                if ds.label is not None:
+                    has_labels = True
+                    ax.plot(ts, vs, label=ds.label)
+                else:
+                    ax.plot(ts, vs)
+        if has_labels:
+            ax.legend()

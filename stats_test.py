@@ -14,21 +14,30 @@ def main_setup():
 if __name__ == '__main__':
     global val
     main_setup()
-    tag = globals_.stats_manager.new_graph(
+    tag_a = globals_.stats_manager.new_graph(
         title='Random walk',
         ylabel='Walk value',
-        is_rate=False
+        dataset_label='Walk A',
+        graph_id='walks'
+    )
+    tag_b = globals_.stats_manager.new_graph(
+        # There can be duplicates of title, ylabel, etc. here
+        graph_id='walks',
+        dataset_label='Walk B'
     )
     # hack to allow modifying outer variable
     # from within a closure
-    val = [10]
+    val_a = [10]
+    val_b = [10]
     time_step = 0.1
     def gen_data():
         '''
         Adds data to the graph at random time intervals
         '''
-        globals_.stats_manager.notify(tag, val[0])
-        val[0] += random.randint(-1, 1)
+        globals_.stats_manager.notify(tag_a, val_a[0])
+        globals_.stats_manager.notify(tag_b, val_b[0])
+        val_a[0] += random.randint(-1, 1)
+        val_b[0] += random.randint(-1, 1)
         time = globals_.event_manager.get_time()
         if time < 100:
             globals_.event_manager.add(time_step, gen_data)
