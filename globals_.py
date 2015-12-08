@@ -28,5 +28,8 @@ NUM_OBSERVATIONS_FOR_RTTE = int(1 * 10 * 10 ** 6 / DATA_PACKET_SIZE)
 # MISSED_ACK_RTT_FACTOR * maximum_rtt_observed_so_far
 MISSED_ACK_RTT_FACTOR = 1.2
 
-# interval for increasing window size and
-# how long to wait for ack are magic numbers in flow.py
+FAST_WINDOW_UPDATE_INTERVAL = 0.100  # seconds
+
+# We should wait up to TIMEOUT_RTTE_MULTIPLIER * rtt_estimate before
+# considering an ack to be missed
+TIMEOUT_RTTE_MULTIPLIER = 3

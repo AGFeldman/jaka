@@ -217,8 +217,6 @@ class Flow(object):
         elif (size >= self.ssthresh) and self.slow_start:
             self.enter_congestion_avoidance()
 
-    # TODO(agf): Instead of using this beat, we could calculate window size
-    # every time that get_window_size() is called
     def start_FAST_window_size_update_beat(self):
         '''
         In TCP-FAST, window size is given by a formula
@@ -233,15 +231,10 @@ class Flow(object):
                 globals_.event_manager.log('{} window size is now {}'.format(
                     self.id_, self.window_size))
             self.rtte.reset()
-            globals_.event_manager.add(0.050, beat)
-        globals_.event_manager.add(0.050, beat)
+            globals_.event_manager.add(globals_.FAST_WINDOW_UPDATE_INTERVAL, beat)
+        globals_.event_manager.add(globals_.FAST_WINDOW_UPDATE_INTERVAL, beat)
 
     def fast_retransmit(self, packet_id):
-        # DEBUG(jg)
-        globals_.event_manager.log(
-            'WINDOW fast_retransmitting pkt_id={} w={} ssthresh={}'.format(
-                packet_id, self.window_size, self.ssthresh))
-        # ENDEBUG
         packet = self.packets_to_send[packet_id]
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
@@ -250,28 +243,18 @@ class Flow(object):
     def enter_fast_recovery(self):
         # Do not enter fr if did it recently
         if (globals_.event_manager.get_time() - self.time_last_fr <
-                max(0.5, 3 * self.rtte.get_estimate())):
+                max(0.5, globals_.TIMEOUT_RTTE_MULTIPLIER * self.rtte.get_estimate())):
             return
 
         self.time_last_fr = globals_.event_manager.get_time()
         self.ssthresh = max((self.window_size // 2, 2))
         self.set_window_size(self.ssthresh + self.ndups)
-        # DEBUG(jg)
-        globals_.event_manager.log(
-            'WINDOW entering fast recovery w={} set ssthresh:={}'.format(
-                self.window_size, self.ssthresh))
-        # ENDEBUG
         self.fast_recovery = True
 
     def exit_fast_recovery(self):
         assert self.ssthresh != float('inf')
         self.set_window_size(self.ssthresh)
         self.window_size_float = float(self.window_size)
-        # DEBUG(jg)
-        globals_.event_manager.log(
-            'WINDOW exiting fast recovery w:={} set ssthresh={}'.format(
-                self.window_size, self.ssthresh))
-        # ENDEBUG
         self.ndups = 0
         self.dup_id = -1
         self.fast_recovery = False
@@ -332,7 +315,6 @@ class Flow(object):
             # This packet could have been resent after this timeout event was created;
             # in that case, this timeout event is now invalid (real timeout should be later)
             if packet.timeout != globals_.event_manager.get_time():
-                # TODO(jg): log this
                 return
             if packet.id_ in self.packets_waiting_for_acks:
                 globals_.event_manager.log(
@@ -347,8 +329,7 @@ class Flow(object):
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
                             self.id_, packet.id_))
-        # Wait 3 times the round-trip-time-estimate
-        wait_time = 3 * self.rtte.get_estimate()
+        wait_time = globals_.TIMEOUT_RTTE_MULTIPLIER * self.rtte.get_estimate()
         packet.timeout = globals_.event_manager.get_time() + wait_time
         globals_.event_manager.add(wait_time, ack_is_due)
 
@@ -413,28 +394,12 @@ class Flow(object):
                 self.transmit_window_start = ack_next_expected
 
             self.set_window_size(self.ssthresh + self.ndups)
-            # DEBUG(jg)
-            globals_.event_manager.log(
-                'WINDOW: updating window in FAST_RECOVERY, ndup={}, w:={}, ssthresh={}'.format(
-                    self.ndups, self.window_size, self.ssthresh))
-            # ENDEBUG(jg)
         elif ack_next_expected > self.transmit_window_start:
             self.transmit_window_start = ack_next_expected
             # If in slow start mode, increment window on successful ack
             # This results in window doubling every RTT
             if self.slow_start:
                 self.set_window_size(self.window_size + 1)
-                # DEBUG(jg)
-                globals_.event_manager.log(
-                    'WINDOW: updating window in SLOW_START w = w + 1, w:={}, ssthresh={}'.format(
-                        self.window_size, self.ssthresh))
-                # ENDEBUG(jg)
             elif self.congestion_avoidance and self.protocol == 'RENO':
                 self.window_size_float += 1.0 / self.window_size_float
                 self.set_window_size(int(self.window_size_float // 1))
-                # DEBUG(jg)
-                globals_.event_manager.log(
-                    'WINDOW: updating window in CONGESTION_AVOIDANCE w = w + 1/w'
-                    + ', w:={}, ssthresh={}'.format(
-                        self.window_size, self.ssthresh))
-                # ENDEBUG(jg)
