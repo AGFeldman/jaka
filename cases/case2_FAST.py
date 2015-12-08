@@ -88,11 +88,11 @@ description = [
         'buffer': 128 * 10**3 * 8
         },
     {'id': 'F1', 'type': 'flow', 'src': 'S1', 'dst': 'T1', 'amount': 35 * 10**6 * 8,
-        'start': 0.5, 'protocol': 'FAST'},
+        'start': 0.5, 'protocol': 'FAST', 'alpha': 40},
     {'id': 'F2', 'type': 'flow', 'src': 'S2', 'dst': 'T2', 'amount': 15 * 10**6 * 8,
-        'start': 10, 'protocol': 'FAST'},
+        'start': 10, 'protocol': 'FAST', 'alpha': 40},
     {'id': 'F3', 'type': 'flow', 'src': 'S3', 'dst': 'T3', 'amount': 30 * 10**6 * 8,
-        'start': 20, 'protocol': 'FAST'},
+        'start': 20, 'protocol': 'FAST', 'alpha': 40},
     ]
 
 print json.dumps(description)

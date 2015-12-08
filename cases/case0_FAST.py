@@ -22,7 +22,8 @@ description = [
         'dst': 'H2',
         'amount': 20 * 10**6 * 8,
         'start': 1,
-        'protocol': 'FAST'
+        'protocol': 'FAST',
+        'alpha': 40
         },
     ]
 

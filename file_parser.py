@@ -34,10 +34,15 @@ class FileParser(object):
                                  delay=entity['delay'],
                                  buf_size=entity['buffer'])
             if entity['type'] == 'flow':
+                alpha = None
+                protocol = entity['protocol']
+                if protocol == 'FAST':
+                    alpha = entity['alpha']
                 network.add_flow(id_=entity['id'],
                                  start=entity['start'],
                                  amount=entity['amount'],
                                  src_id=entity['src'],
                                  dst_id=entity['dst'],
-                                 protocol=entity['protocol'])
+                                 protocol=protocol,
+                                 alpha=alpha)
         return network
