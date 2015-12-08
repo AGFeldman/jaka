@@ -116,9 +116,6 @@ class Flow(object):
         # Start of transmit window (earliest unacknowledged sequence number)
         self.transmit_window_start = 0
 
-        # If we eventually do selective acknowledgements
-        # self.packets_ackd_out_of_order = []
-
         # TCP States (affect how window is changed)
         self.slow_start = True
         self.congestion_avoidance = False
@@ -153,31 +150,25 @@ class Flow(object):
         time = globals_.event_manager.get_time()
         if time - self.time_of_last_window_reduction > max(0.5, self.rtte.estimate):
             self.time_of_last_window_reduction = time
-            new_size = max(((self.window_size // 2) + (self.window_size % 2), 1))
-            # print 'w={}, new_size={}'.format(self.window_size, new_size)
-            assert new_size >= 1
-            # DEBUG(jg)
-            globals_.event_manager.log(
-                'WINDOW timed out, setting w:=1 ssthresh:={}'.format(new_size))
-            # ENDEBUG
-            self.ssthresh = new_size
+            self.ssthresh = max(((self.window_size // 2) + (self.window_size % 2), 1))
             # TCP-FAST doesn't cut window size upon missed ack
             if self.protocol == 'RENO':
                 self.set_window_size(1)
+            globals_.event_manager.log(
+                '{}: Due to missed ack, set w={} and ssthresh={}'.format(
+                    self.id_, self.window_size, self.ssthresh))
 
         self.retransmit()
 
     def retransmit(self):
         self.packets_waiting_for_acks = dict()
-        # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW retransmitting all in txwindow, w={} ssthresh:={}'.format(
-                self.window_size, self.ssthresh))
-        # ENDEBUG
+            '{} is retransmitting all in txwindow, w={} ssthresh={}'.format(
+                self.id_, self.window_size, self.ssthresh))
         assert self.transmit_window_start <= len(self.packets_to_send)
-        if globals_.event_manager.get_time() > self.start \
-           and (self.transmit_window_start == len(self.packets_to_send)) \
-           and not self.packets_waiting_for_acks:
+        if (globals_.event_manager.get_time() > self.start and
+                self.transmit_window_start == len(self.packets_to_send) and
+                not self.packets_waiting_for_acks):
             self.finished = True
         elif self.transmit_window_start < len(self.packets_to_send):
             end_range = min(self.transmit_window_start + self.window_size,
@@ -193,7 +184,7 @@ class Flow(object):
         globals_.stats_manager.notify(self.window_size_graph_tag, size)
 
     def enter_congestion_avoidance(self):
-        globals_.event_manager.log('WINDOW entering CA, w = {}'.format(self.window_size))
+        globals_.event_manager.log('{} is entering CA, w={}'.format(self.id_, self.window_size))
         self.slow_start = False
         self.congestion_avoidance = True
         self.window_size_float = self.window_size
@@ -205,42 +196,23 @@ class Flow(object):
         elif (size >= self.ssthresh) and self.slow_start:
             self.enter_congestion_avoidance()
 
-    # TODO(jg): remove this; we no longer grow window size like this
-    # Keeping this here because may use for FAST-TCP periodic window updates
-    # TODO(agf): Is this the best way to update window size in FAST-TCP?
-    # Would we want window size to be updated every time there is a change
-    # to RTT estimate?
-    def start_growing_window_size(self):
-        # Window size grows by 1 every round-trip-time estimate
-        # TODO(agf): If round-trip-time estimate drops sharply, window size
-        # still won't increase until it was last scheduled to increase
-        def grow():
-            # self.set_window_size(self.window_size + 1)
-            # TCP FAST grow function
-
-            # DEBUG(jg)
-            old_window = self.window_size
-            old_window_float = self.window_size_float
-            # ENDEBUG(jg)
+    # TODO(agf): Instead of using this beat, we could calculate window size
+    # every time that get_window_size() is called
+    def start_FAST_window_size_update_beat(self):
+        '''
+        In TCP-FAST, window size is given by a formula
+        Establish a beat that uses this formula to update the window size every 50 ms
+        '''
+        assert self.protocol == 'FAST'
+        def beat():
             if (self.congestion_avoidance):
                 self.window_size_float = ((self.rtte.basertt / self.rtte.estimate)
                                           * self.window_size_float + self.alpha)
                 self.set_window_size(int(self.window_size_float // 1))
-                # DEBUG(jg)
-                globals_.event_manager.log(
-                    ('WINDOW  TCP_FAST growth, base={}, est={},'
-                     + 'base/est={}, old_wf={}, new_wf={},        old_w={}, new_w={}')
-                    .format(self.rtte.basertt, self.rtte.estimate,
-                            self.rtte.basertt / self.rtte.estimate,
-                            old_window_float, self.window_size_float,
-                            old_window, self.window_size)
-                )
-                # ENDEBUG
-
-            globals_.event_manager.log('{} window size is now {}'.format(
-                self.id_, self.window_size))
-            globals_.event_manager.add(0.050, grow)
-        globals_.event_manager.add(self.rtte.estimate, grow)
+                globals_.event_manager.log('{} window size is now {}'.format(
+                    self.id_, self.window_size))
+            globals_.event_manager.add(0.050, beat)
+        globals_.event_manager.add(0.050, beat)
 
     def fast_retransmit(self, packet_id):
         # DEBUG(jg)
@@ -290,12 +262,9 @@ class Flow(object):
     def receive_ack(self, packet):
         assert isinstance(packet, AckPacket)
         assert packet.dst == self.src_obj.id_
-
-        # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW                  RECEIVED ack pkt_id={}, next_expected={}, w:={} ssthresh={}'
-            .format(packet.id_, packet.next_expected, self.window_size, self.ssthresh))
-        # ENDEBUG
+                '{} received ack for {}; next_expected={}; w_size={}; ssthresh={}'.format(
+                    self.id_, packet.id_, packet.next_expected, self.window_size, self.ssthresh))
 
         # Update ndups
         if self.congestion_avoidance and not self.tcp_fast:
@@ -307,7 +276,6 @@ class Flow(object):
 
             if self.ndups == 3 and packet.next_expected < len(self.packets_to_send):
                 self.enter_fast_recovery()
-                # self.retransmit()
                 self.fast_retransmit(packet.next_expected)
 
             if self.fast_recovery and self.ndups < 3:
@@ -321,23 +289,21 @@ class Flow(object):
         globals_.event_manager.log('{} received ack for {}'.format(self.id_, packet))
         data_packet, time_sent = self.packets_waiting_for_acks[packet.id_]
         assert packet.src == data_packet.dst and packet.dst == data_packet.src
-        if data_packet.times_sent == 1:
+        if data_packet.num_times_sent == 1:
             rtt = globals_.event_manager.get_time() - time_sent
             self.rtte.update_rtt_datapoint(rtt)
             globals_.stats_manager.notify(self.rt_packet_delay_graph_tag, rtt)
 
-        # del self.packets_waiting_for_acks[packet.id_]
         self.update_packets_waiting_for_ack(packet.next_expected)
 
     def send_packet(self, packet):
         assert isinstance(packet, DataPacket)
-        # DEBUG(jg)
         globals_.event_manager.log(
-            'WINDOW SENDING                pkt_id={}; w_start = {}, w:={} set ssthresh={}'.format(
-                packet.id_, self.transmit_window_start, self.window_size, self.ssthresh))
-        # ENDEBUG
+                '{} is sending packet {}; w_start={}; w_size={}; ssthresh={}'.format(
+                    self.id_, packet.id_, self.transmit_window_start, self.window_size,
+                    self.ssthresh))
         self.src_obj.send_packet(packet)
-        packet.times_sent = packet.times_sent + 1
+        packet.num_times_sent += 1
 
         self.packets_waiting_for_acks[packet.id_] = (packet, globals_.event_manager.get_time())
         def ack_is_due():
@@ -351,19 +317,10 @@ class Flow(object):
                         '{} is due to receive an ack for {}, has not received it'.format(
                             self.id_, packet.id_))
                 self.rtte.update_missed_ack()
-
-                # We no longer use the packets_to_send as a queue
-                # self.packets_to_send.insert(0, packet)
-
-                # Remove from list of packets waiting for acks
-                # This might be necessary to enable more sends, since sends can
-                # only occur when #waiting_for_acks < window_size
+                # Removing packet from the dictionary of packets waiting for acks allows
+                # us to re-transmit the packet
                 del self.packets_waiting_for_acks[packet.id_]
-                # DEBUG(jg)
-                globals_.event_manager.log('WINDOW timeout on pkt_id={}'.format(packet.id_))
-                # ENDEBUG
                 self.update_window_size_missed_ack()
-                # self.retransmit()
             else:
                 globals_.event_manager.log(
                         '{} is due to receive an ack for {}, has already received it'.format(
@@ -375,9 +332,9 @@ class Flow(object):
     def act(self):
         acted = False
         assert self.transmit_window_start <= len(self.packets_to_send)
-        if globals_.event_manager.get_time() > self.start \
-           and (self.transmit_window_start == len(self.packets_to_send)) \
-           and not self.packets_waiting_for_acks:
+        if (globals_.event_manager.get_time() > self.start and
+                self.transmit_window_start == len(self.packets_to_send) and
+                not self.packets_waiting_for_acks):
             self.finished = True
             return False
         elif self.transmit_window_start < len(self.packets_to_send):
@@ -390,19 +347,6 @@ class Flow(object):
                     globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
                     acted = True
         return acted
-        # if not self.packets_to_send:
-        #     if not self.packets_waiting_for_acks \
-        #        and globals_.event_manager.get_time() > self.start:
-        #         self.finished = True
-        #     return False
-        # n_waiting_for_acks = len(self.packets_waiting_for_acks)
-        # if n_waiting_for_acks >= self.window_size:
-        #     return False
-        # for _ in xrange(min((self.window_size - n_waiting_for_acks, len(self.packets_to_send)))):
-        #     packet = self.packets_to_send.pop(0)
-        #     self.send_packet(packet)
-        #     globals_.event_manager.log('{} sent packet {}'.format(self.id_, packet))
-        # return True
 
     def generate_packets_to_send(self):
         '''
@@ -420,9 +364,8 @@ class Flow(object):
     def register_with_event_manager(self):
         def setup():
             self.generate_packets_to_send()
-            # TODO(jg): remove this; we no longer grow window size like this
             if self.tcp_fast:
-                self.start_growing_window_size()
+                self.start_FAST_window_size_update_beat()
         globals_.event_manager.add(self.start, setup)
 
     def log_packet_received(self):
@@ -440,17 +383,6 @@ class Flow(object):
                 self.next_expected += 1
         elif packet_id not in self.packets_received_out_of_order and packet_id > self.next_expected:
             self.packets_received_out_of_order.append(packet_id)
-
-    # # This would be useful if we do selective acknowledgements
-    # def update_transmit_window(self, packet_id):
-    #     if packet_id == self.transmit_window_start:
-    #         self.transmit_window_start += 1
-    #         while self.transmit_window_start in self.packets_ackd_out_of_order:
-    #             self.packets_ackd_out_of_order.remove(self.transmit_window_start)
-    #             self.transmit_window_start += 1
-    #     elif packet_id not in self.packets_ackd_out_of_order \
-    #          and packet_id > self.transmit_window_start:
-    #         self.packets_ackd_out_of_order.append(packet_id)
 
     def update_transmit_window(self, ack_next_expected):
         if self.fast_recovery:
