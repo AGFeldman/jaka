@@ -76,7 +76,7 @@ class RTTE(object):
 
 class Flow(object):
     def __init__(self, id_=None, start=None, amount=None, src_obj=None, dst_obj=None,
-                 protocol=None):
+                 protocol=None, alpha=None):
         '''
         id_ is e.g. "F1"
         start is the time that the flow should start, in seconds
@@ -94,6 +94,7 @@ class Flow(object):
         self.src_obj = src_obj
         self.dst_obj = dst_obj
         self.protocol = protocol
+        self.alpha = alpha
         assert self.protocol in ('RENO', 'FAST')
 
         self.init_window_size()
@@ -147,13 +148,6 @@ class Flow(object):
         self.dup_id = -1
         self.fast_recovery = False
         self.time_last_fr = -1
-
-        # TCP FAST params
-        if self.protocol == 'FAST':
-            self.tcp_fast = True
-            self.alpha = 40
-        else:
-            self.tcp_fast = False
 
     def init_window_size(self):
         self.window_size = 1
@@ -289,7 +283,7 @@ class Flow(object):
                     self.id_, packet.id_, packet.next_expected, self.window_size, self.ssthresh))
 
         # Update ndups
-        if self.congestion_avoidance and not self.tcp_fast:
+        if self.congestion_avoidance and self.protocol == 'RENO':
             if packet.next_expected == self.dup_id:
                 self.ndups = self.ndups + 1
             elif packet.next_expected > self.dup_id:
@@ -387,7 +381,7 @@ class Flow(object):
     def register_with_event_manager(self):
         def setup():
             self.generate_packets_to_send()
-            if self.tcp_fast:
+            if self.protocol == 'FAST':
                 self.start_FAST_window_size_update_beat()
         globals_.event_manager.add(self.start, setup)
 
@@ -429,7 +423,7 @@ class Flow(object):
                     'WINDOW: updating window in SLOW_START w = w + 1, w:={}, ssthresh={}'.format(
                         self.window_size, self.ssthresh))
                 # ENDEBUG(jg)
-            elif self.congestion_avoidance and not self.tcp_fast:
+            elif self.congestion_avoidance and self.protocol == 'RENO':
                 self.window_size_float += 1.0 / self.window_size_float
                 self.set_window_size(int(self.window_size_float // 1))
                 # DEBUG(jg)

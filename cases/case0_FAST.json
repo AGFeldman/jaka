@@ -1,1 +1,1 @@
-[{"type": "host", "id": "H1"}, {"type": "host", "id": "H2"}, {"buffer": 512000, "delay": 0.01, "rate": 10000000, "endpoints": ["H1", "H2"], "type": "link", "id": "L1"}, {"src": "H1", "protocol": "FAST", "dst": "H2", "start": 1, "amount": 160000000, "type": "flow", "id": "F1"}]
+[{"type": "host", "id": "H1"}, {"type": "host", "id": "H2"}, {"buffer": 512000, "delay": 0.01, "rate": 10000000, "endpoints": ["H1", "H2"], "type": "link", "id": "L1"}, {"src": "H1", "amount": 160000000, "protocol": "FAST", "start": 1, "alpha": 40, "dst": "H2", "type": "flow", "id": "F1"}]
