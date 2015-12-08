@@ -16,12 +16,13 @@ if __name__ == '__main__':
     main_setup()
     tag = globals_.stats_manager.new_graph(
         title='Random walk',
-        ylabel='Walk value'
+        ylabel='Walk value',
+        is_rate=False
     )
     # hack to allow modifying outer variable
     # from within a closure
     val = [10]
-    time_step = 3
+    time_step = 0.1
     def gen_data():
         '''
         Adds data to the graph at random time intervals

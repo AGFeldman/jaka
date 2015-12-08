@@ -7,46 +7,20 @@ import matplotlib.pyplot as plt
 import globals_
 
 
-class Graph(object):
+class Dataset(object):
     '''
-    Stores all the information about a graph.
+    Stores one of the datasets for a graph.
     '''
 
     def __init__(self,
-                 title=None,
-                 ylabel=None,
                  is_rate=False,
                  sliding_window_width=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_WIDTH,
                  sliding_window_step=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_STEP):
-        '''
-        If is_rate is True, then the data is plotted as a rate.
-            Rate data points are |sliding_window_step| seconds apart.
-            Rate data points consider the last |sliding_window_width| seconds of
-            values when computing rate.
-        '''
-        self.title = title
-        self.ylabel = ylabel
         self.is_rate = is_rate
         self.sliding_window_width = sliding_window_width
         self.sliding_window_step = sliding_window_step
         self.times = []
         self.values = []
-
-    def draw(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        if self.title:
-            ax.set_title(self.title)
-        if self.ylabel:
-            ax.set_ylabel(self.ylabel)
-        ax.set_xlabel('Time (s)')
-        if self.is_rate:
-            if not self.times:
-                return
-            rate_times, rate_values = self.get_rate_data()
-            ax.plot(rate_times, rate_values)
-        else:
-            ax.plot(self.times, self.values)
 
     def get_rate_data(self):
         beginning_of_sliding_window_index = 0
@@ -90,3 +64,57 @@ class Graph(object):
     def append(self, time, value):
         self.times.append(time)
         self.values.append(value)
+
+    def get_data(self):
+        # Returns tuple of times, graphable_values
+        if self.is_rate:
+            if not self.times:
+                return [], []
+            times, values = self.get_rate_data()
+        else:
+            times = self.times
+            values = self.values
+        return times, values
+
+
+class Graph(object):
+    '''
+    Stores all the information about a graph.
+    '''
+
+    def __init__(self,
+                 title=None,
+                 ylabel=None,
+                 is_rate=False,
+                 sliding_window_width=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_WIDTH,
+                 sliding_window_step=globals_.DEFAULT_GRAPH_SLIDING_WINDOW_STEP):
+        '''
+        If is_rate is True, then the data is plotted as a rate.
+            Rate data points are |sliding_window_step| seconds apart.
+            Rate data points consider the last |sliding_window_width| seconds of
+            values when computing rate.
+        '''
+        self.title = title
+        self.ylabel = ylabel
+        self.is_rate = is_rate
+        self.sliding_window_width = sliding_window_width
+        self.sliding_window_step = sliding_window_step
+        self.datasets = []
+        self.datasets.append(Dataset(is_rate, sliding_window_width, sliding_window_step))
+        self.times = []
+        self.values = []
+
+    def draw(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        if self.title:
+            ax.set_title(self.title)
+        if self.ylabel:
+            ax.set_ylabel(self.ylabel)
+        ax.set_xlabel('Time (s)')
+        ts, vs = self.datasets[0].get_data()
+        if ts:
+            ax.plot(ts, vs)
+
+    def append(self, time, value):
+        self.datasets[0].append(time, value)
