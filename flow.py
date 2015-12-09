@@ -22,12 +22,20 @@ class RTTE(object):
         self.reset()
 
     def reset(self):
+        '''
+        Remember self.min_rtt_observed and self.max_rtt_observed, but
+        forget other data points
+        '''
         self.estimate_with_no_data = globals_.INITIAL_RTT_ESTIMATE
         self.data = []
         if self.flow.protocol == 'FAST':
             self.n_missed_acks = 0
 
     def get_estimate(self):
+        '''
+        Return RTT estimate based on observed RTTs.
+        If protocol is FAST, then this is also based on missed acks.
+        '''
         if not self.data:
             return self.estimate_with_no_data
         n_observations = len(self.data)
@@ -48,6 +56,9 @@ class RTTE(object):
         return self.min_rtt_observed
 
     def get_max(self):
+        '''
+        Return the maximum RTT observed
+        '''
         if self.max_rtt_observed is None:
             return globals_.INITIAL_RTT_ESTIMATE
         return self.max_rtt_observed
@@ -89,6 +100,7 @@ class Flow(object):
         src_obj is the Host object for the source
         dst_obj is the Host object for the destination
         protocol is either "RENO" or "FAST"
+        alpha is either None (if protocol is RENO) or a float (if protocol is FAST)
 
         public members:
             self.finished: Indicates whether the flow has finished transmitting all packets
@@ -102,7 +114,9 @@ class Flow(object):
         self.alpha = alpha
         assert self.protocol in ('RENO', 'FAST')
 
-        self.init_window_size()
+        # Initialize window size
+        self.window_size = 1
+        self.window_size_float = float(1)
 
         # Round trip time estimate
         self.rtte = RTTE(self)
@@ -149,14 +163,12 @@ class Flow(object):
         self.congestion_avoidance = False
         self.ssthresh = float('inf')
 
+        # For keeping track of duplicate acks
         self.ndups = 0
         self.dup_id = -1
+
         self.fast_recovery = False
         self.time_last_fr = -1
-
-    def init_window_size(self):
-        self.window_size = 1
-        self.window_size_float = float(1)
 
     def update_window_size_missed_ack(self):
         '''
