@@ -20,9 +20,16 @@ INITIAL_ROUTING_TABLE_SWITCH = 0.4  # seconds
 INITIAL_RTT_ESTIMATE = 0.1  # seconds
 # Use the last NUM_OBSERVATIONS_FOR_RTTE observations when estimating average RTT
 # We choose this number such that if a flow transmits at 10 Mbps, then we
-# consider round trip time observations made in the last ~1 second
+# consider round trip time observations made in the last ~1 second.
+# TCP-FAST may use infinity instead of this number.
 # TODO(agf): Calibrate
 NUM_OBSERVATIONS_FOR_RTTE = int(1 * 10 * 10 ** 6 / DATA_PACKET_SIZE)
+# TCP-FAST treats a missed ack as if it is an observation of
+# MISSED_ACK_RTT_FACTOR * maximum_rtt_observed_so_far
+MISSED_ACK_RTT_FACTOR = 1.2
 
-# interval for increasing window size and
-# how long to wait for ack are magic numbers in flow.py
+FAST_WINDOW_UPDATE_INTERVAL = 0.100  # seconds
+
+# We should wait up to TIMEOUT_RTTE_MULTIPLIER * rtt_estimate before
+# considering an ack to be missed
+TIMEOUT_RTTE_MULTIPLIER = 3
