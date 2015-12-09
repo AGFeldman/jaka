@@ -1,4 +1,3 @@
-import random
 import heapq
 import signal
 
@@ -82,7 +81,6 @@ class EventManager(object):
             keep_acting = True
             while keep_acting:
                 keep_acting = False
-                random.shuffle(self.actors)
                 for actor in self.actors:
                     if actor.act():
                         keep_acting = True

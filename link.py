@@ -1,7 +1,5 @@
 from __future__ import division
 
-import random
-
 import globals_
 
 
@@ -132,8 +130,28 @@ class Link(object):
         self.waiting_to_decide_direction = True
         self.src_dst_endpoints = None
 
+        # Keep track of whether the last send direction was endpoint 1 ->
+        # endpoint 2, or the other way around. Use this to break ties when
+        # deciding which direction to send packets.  Pretend that before we
+        # started, the last send direction was 1 to 2.
+        self.last_send_dir_was_1_to_2 = True
+
     def __str__(self):
         return self.id_
+
+    def return_12(self):
+        '''
+        Helper function for get_src_dst_endpoints()
+        '''
+        self.last_send_dir_was_1_to_2 = True
+        return self.endpoint1, self.endpoint2
+
+    def return_21(self):
+        '''
+        Helper function for get_src_dst_endpoints()
+        '''
+        self.last_send_dir_was_1_to_2 = False
+        return self.endpoint2, self.endpoint1
 
     def get_src_dst_endpoints(self):
         '''
@@ -143,17 +161,18 @@ class Link(object):
         if not self.endpoint1.buffer and not self.endpoint2.buffer:
             return
         if self.endpoint1.buffer and not self.endpoint2.buffer:
-            return self.endpoint1, self.endpoint2
+            return self.return_12()
         if not self.endpoint1.buffer and self.endpoint2.buffer:
-            return self.endpoint2, self.endpoint1
+            return self.return_21()
         lra1_time = self.endpoint1.peek_lra()[1]
         lra2_time = self.endpoint2.peek_lra()[1]
         if lra1_time < lra2_time:
-            return self.endpoint1, self.endpoint2
+            return self.return_12()
         if lra1_time > lra2_time:
-            return self.endpoint2, self.endpoint1
-        return random.choice(((self.endpoint1, self.endpoint2),
-                              (self.endpoint2, self.endpoint1)))
+            return self.return_21()
+        if self.last_send_dir_was_1_to_2:
+            return self.return_21()
+        return self.return_12()
 
     def send(self, src_endpoint, dst_endpoint):
         assert self.packet_transmitting is None
