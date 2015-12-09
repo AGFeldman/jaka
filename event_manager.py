@@ -49,7 +49,6 @@ class EventManager(object):
     def register_network(self, network):
         self.actors = network.get_actors()
         for actor in self.actors:
-            # TODO(agf): Make this more tolerant of mis-spellings. Seriously.
             if hasattr(actor, 'register_with_event_manager'):
                 actor.register_with_event_manager()
 
