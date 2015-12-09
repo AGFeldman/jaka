@@ -103,7 +103,7 @@ class Graph(object):
 
     def draw(self):
         fig = plt.figure()
-        ax = fig.add_subplot(111)
+        ax = fig.add_axes((0.2, 0.5, 0.75, 0.4))
         if self.title:
             ax.set_title(self.title)
         if self.ylabel:
@@ -111,15 +111,27 @@ class Graph(object):
         ax.set_xlabel('Time (s)')
         has_labels = False
 
+        caption_lines = []
+
         for ds in self.datasets:
             ts, vs = ds.get_data(self.is_rate,
                                  self.sliding_window_width,
                                  self.sliding_window_step)
             if ts:
+                if self.ylabel:
+                    caption_line = 'average ' + self.ylabel + ' is '
+                else:
+                    caption_line = 'average is '
+                caption_line += str(sum(vs) / len(vs))
                 if ds.label is not None:
                     has_labels = True
                     ax.plot(ts, vs, label=ds.label)
+                    caption_line = ds.label + ' ' + caption_line
                 else:
                     ax.plot(ts, vs)
+                caption_lines.append(caption_line)
         if has_labels:
             ax.legend()
+
+        # Add caption
+        fig.text(0.1, 0.05, '\n'.join(caption_lines))
