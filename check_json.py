@@ -1,5 +1,6 @@
 '''
-Run with 'python check_json.py < cases/case0.json'
+Verifies that JSON looks like a test case description.
+Run with 'python check_json.py < cases/case0.json'.
 '''
 
 
