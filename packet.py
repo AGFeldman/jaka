@@ -51,7 +51,7 @@ class RoutingPacket(Packet):
         '''
         assert src is not None
         assert distances is not None
-        self.id_ = 'TODO(agf): Routing packets don\'t have ids'
+        self.id_ = '[routing packets don\'t have ids]'
         self.src = src
         self.distances = distances
         self.size = globals_.DATA_PACKET_SIZE

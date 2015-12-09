@@ -30,8 +30,8 @@ class Router(Device):
             self.endpoints_to_hosts.append(link_endpoint)
             return
         assert isinstance(link_endpoint.distant_device, Router)
+        # Assume that any two devices have at most one direct link between them
         self.endpoints_to_routers[link_endpoint.distant_device.id_] = link_endpoint
-        # TODO(agf): What if there are multiple direct links to the same destination?
 
     def send_packet(self, packet):
         '''
@@ -135,7 +135,6 @@ class Router(Device):
         def beat():
             self.switch_routing_table()
             globals_.event_manager.add(globals_.SWITCH_ROUTING_TABLE_EVERY, beat)
-        # TODO(agf): Think about when we want to set up this beat
         globals_.event_manager.add(globals_.INITIAL_ROUTING_TABLE_SWITCH, beat)
 
     def register_with_event_manager(self):
