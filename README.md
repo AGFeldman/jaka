@@ -4,7 +4,7 @@
 
 http://courses.cms.caltech.edu/cs143/
 
-### Installation
+### Installing and Running
 
 Requires `python` to be Python 2.7.
 
@@ -19,6 +19,18 @@ Running on Ubuntu:
 bash test_all.sh
 # Examine case*.pdf to see graphs
 ```
+
+### Performance Graphs
+
+The latest network performance graphs ([#96](https://github.com/AGFeldman/jaka/pull/96)) are:
+- [case0_FAST_test_output.pdf](https://github.com/AGFeldman/jaka/files/57508/case0_FAST_test_output.pdf)
+- [case0_RENO_test_output.pdf](https://github.com/AGFeldman/jaka/files/57512/case0_RENO_test_output.pdf)
+- [case1_FAST_test_output.pdf](https://github.com/AGFeldman/jaka/files/57511/case1_FAST_test_output.pdf)
+- [case1_RENO_test_output.pdf](https://github.com/AGFeldman/jaka/files/57507/case1_RENO_test_output.pdf)
+- [case2_FAST_test_output.pdf](https://github.com/AGFeldman/jaka/files/57509/case2_FAST_test_output.pdf)
+- [case2_RENO_test_output.pdf](https://github.com/AGFeldman/jaka/files/57510/case2_RENO_test_output.pdf)
+
+Most pull requests after [#50](https://github.com/AGFeldman/jaka/pull/50) have performance graphs attached as comments.
 
 ### For Contributors
 
