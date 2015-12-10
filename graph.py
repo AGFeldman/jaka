@@ -131,7 +131,7 @@ class Graph(object):
                     ax.plot(ts, vs)
                 caption_lines.append(caption_line)
         if has_labels:
-            ax.legend()
+            ax.legend(loc='upper right', bbox_to_anchor=(1, -0.1))
 
         # Add caption
         fig.text(0.1, 0.05, '\n'.join(caption_lines))
