@@ -194,15 +194,20 @@ class Flow(object):
         self.retransmit()
 
     def retransmit(self):
+        '''
+        Retransmit packets in transmit window
+        '''
         self.packets_waiting_for_acks = dict()
         globals_.event_manager.log(
             '{} is retransmitting all in txwindow, w={} ssthresh={}'.format(
                 self.id_, self.window_size, self.ssthresh))
         assert self.transmit_window_start <= len(self.packets_to_send)
+        # Check if flow should be marked as finished
         if (globals_.event_manager.get_time() > self.start and
                 self.transmit_window_start == len(self.packets_to_send) and
                 not self.packets_waiting_for_acks):
             self.finished = True
+        # Retransmit packets in transmit window
         elif self.transmit_window_start < len(self.packets_to_send):
             end_range = min(self.transmit_window_start + self.window_size,
                             len(self.packets_to_send))
@@ -223,6 +228,11 @@ class Flow(object):
         self.window_size_float = self.window_size
 
     def adjust_state(self, size):
+        '''
+        |size| is a new window size
+        Adjust state (slow start / congestion avoidance) based on size and slow
+        start threshold.
+        '''
         if size < self.ssthresh:
             self.slow_start = True
             self.congestion_avoidance = False
@@ -247,6 +257,9 @@ class Flow(object):
         globals_.event_manager.add(globals_.FAST_WINDOW_UPDATE_INTERVAL, beat)
 
     def fast_retransmit(self, packet_id):
+        '''
+        Re-transmit just one packet
+        '''
         packet = self.packets_to_send[packet_id]
         assert isinstance(packet, DataPacket)
         self.send_packet(packet)
