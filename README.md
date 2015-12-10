@@ -4,7 +4,7 @@
 
 http://courses.cms.caltech.edu/cs143/
 
-### Installation
+### Installing and Running
 
 Requires `python` to be Python 2.7.
 
